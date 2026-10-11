@@ -88,7 +88,7 @@ const families = [
     </p>
   </blockquote>
   <h2>Check the installed engine</h2>
-  <CodeBlock code={'curli --list-profiles\ncurli --version'} />
+  <CodeBlock code={'curlimp --list-profiles\ncurlimp --version'} />
   <p>
     <code>--list-profiles</code> validates the catalog against the loaded
     engine, without making network requests. A profile update requires a
@@ -115,7 +115,7 @@ const families = [
   <h2>Control browser headers</h2>
   <CodeBlock
     code={
-      '# Apply profile transport settings without its default headers\ncurli --impersonate chrome150:no -sS -I https://httpbin.org/status/200'
+      '# Apply profile transport settings without its default headers\ncurlimp --impersonate chrome150:no -sS -I https://httpbin.org/status/200'
     }
   />
   <p>
@@ -127,7 +127,7 @@ const families = [
   </p>
   <h2>Disable impersonation</h2>
   <CodeBlock
-    code={'curli --no-impersonate -sS -I https://httpbin.org/status/200'}
+    code={'curlimp --no-impersonate -sS -I https://httpbin.org/status/200'}
   />
   <p>
     This disables profile application, including environment defaults. It still

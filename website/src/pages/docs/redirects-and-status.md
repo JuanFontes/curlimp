@@ -12,9 +12,9 @@ lead: 'Inspect redirects and HTTP errors without confusing response status with 
 Discard the body with `-o /dev/null`, then print the response code with `-w`:
 
 ```sh
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/404
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/502
+curlimp -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
+curlimp -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/404
+curlimp -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/502
 ```
 
 These deliberately request `200`, `404` and `502`. The final newline keeps your next shell prompt on its own line.
@@ -24,7 +24,7 @@ These deliberately request `200`, `404` and `502`. The final newline keeps your 
 Following redirects is opt-in. Inspect the redirect response and its `Location` header:
 
 ```sh
-curli -sS -D - -o /dev/null https://httpbin.org/status/301
+curlimp -sS -D - -o /dev/null https://httpbin.org/status/301
 ```
 
 A 3xx code alone is not enough to follow a redirect; the response needs a usable redirect location.
@@ -34,16 +34,16 @@ A 3xx code alone is not enough to follow a redirect; the response needs a usable
 Add `-L` and report the final status:
 
 ```sh
-curli -sS -L -o /dev/null -w '%{http_code}\n' \
+curlimp -sS -L -o /dev/null -w '%{http_code}\n' \
   https://httpbin.org/status/301
 ```
 
 See the entire header chain, or bound how many redirects are allowed:
 
 ```sh
-curli -sS -L -D - -o /dev/null https://httpbin.org/status/302
+curlimp -sS -L -D - -o /dev/null https://httpbin.org/status/302
 
-curli -sS -L --max-redirs 3 -o /dev/null \
+curlimp -sS -L --max-redirs 3 -o /dev/null \
   -w 'status=%{http_code} redirects=%{num_redirects}\n' \
   https://httpbin.org/status/301
 ```
@@ -55,7 +55,7 @@ The default limit is 50 when following redirects. `--max-redirs -1` removes the 
 A completed transfer that receives an HTTP `404` is not the same as a failed DNS lookup or TLS handshake. By default, HTTP errors do not cause a nonzero exit code.
 
 ```sh
-curli -sS -o /dev/null \
+curlimp -sS -o /dev/null \
   -w 'http=%{http_code} exit=%{exitcode}\n' \
   https://httpbin.org/status/404
 ```
@@ -67,20 +67,20 @@ For a successfully received response, this reports `http=404 exit=0`. If no HTTP
 `-f` returns exit code `22` for HTTP status 400 or above and suppresses the body:
 
 ```sh
-curli -sS -f -o /dev/null https://httpbin.org/status/502
+curlimp -sS -f -o /dev/null https://httpbin.org/status/502
 printf 'exit=%s\n' "$?"
 ```
 
 Use `--fail-with-body` to keep a useful error payload while still returning exit `22`:
 
 ```sh
-curli -sS --fail-with-body https://httpbin.org/status/418
+curlimp -sS --fail-with-body https://httpbin.org/status/418
 ```
 
 Both options intentionally make these examples fail. In a shell script, handle that branch explicitly:
 
 ```sh
-if curli -sS -f -o /dev/null https://httpbin.org/status/503; then
+if curlimp -sS -f -o /dev/null https://httpbin.org/status/503; then
   printf 'Request succeeded\n'
 else
   result=$?
@@ -88,12 +88,12 @@ else
 fi
 ```
 
-Interactive aliases are not automatically available in noninteractive scripts. Use the full Docker command or a native executable in saved scripts.
+In saved scripts, call the native `curlimp` command or use the full Docker command.
 
 ## Add useful transfer metadata
 
 ```sh
-curli -sS -L -o /dev/null \
+curlimp -sS -L -o /dev/null \
   -w 'status=%{http_code}\nurl=%{url_effective}\nredirects=%{num_redirects}\nhttp=%{http_version}\nseconds=%{time_total}\n' \
   https://httpbin.org/status/301
 ```

@@ -12,10 +12,10 @@ lead: 'Keep paths, streams and bytes predictable in both Docker and native scrip
 The host shell creates the destination file:
 
 ```sh
-curli -sS https://httpbin.org/status/418 > response.body
+curlimp -sS https://httpbin.org/status/418 > response.body
 ```
 
-This works with the plain Docker alias because redirection happens outside the container. Unlike the CLI's deferred `-o` handling, the shell can create or truncate the file before a request starts.
+Redirection also works with a full Docker command because the host shell handles it outside the container. Unlike the CLI's deferred `-o` handling, the shell can create or truncate the file before a request starts.
 
 ## Save with the output option
 
@@ -30,14 +30,21 @@ docker run --rm -v "$PWD:/work" juanfontes/curlimp:latest \
 
 ## Pipe JSON into a request
 
-The alias includes Docker's `-i`, which forwards stdin. The CLI's `@-` reads that stream:
+The native CLI reads stdin with `@-`:
 
 ```sh
-printf '{"message":"hello"}' | curli -sS -i --json @- \
+printf '{"message":"hello"}' | curlimp -sS -i --json @- \
   https://httpbin.org/status/201
 ```
 
-The JSON is sent as the request body; the status fixture does not echo it. Docker's `-i` must appear **before the image name**. The CLI's `-i` after the image name means “include response headers.”
+The JSON is sent as the request body; the status fixture does not echo it. With Docker, add `-i` **before the image name** to forward stdin:
+
+```sh
+printf '{"message":"hello"}' | docker run --rm -i \
+  juanfontes/curlimp:latest -sS -i --json @- https://httpbin.org/status/201
+```
+
+The CLI's `-i` after the image name means “include response headers.” Avoid Docker's `-t` in pipelines.
 
 ## Send an existing file
 
@@ -53,7 +60,7 @@ docker run --rm -v "$PWD:/work:ro" juanfontes/curlimp:latest \
 For exact bytes, use `--data-binary`:
 
 ```sh
-printf 'first line\nsecond line\n' | curli -sS -i \
+printf 'first line\nsecond line\n' | curlimp -sS -i \
   -H 'Content-Type: application/octet-stream' --data-binary @- \
   https://httpbin.org/status/200
 ```
@@ -69,22 +76,19 @@ Use `--txt` or `--json-file` for automatically named files, or `--json-output` f
 The response body goes to stdout by default. Errors and verbose diagnostics go to stderr:
 
 ```sh
-curli -sS -v https://httpbin.org/status/200 \
+curlimp -sS -v https://httpbin.org/status/200 \
   > response.body 2> request.log
 ```
 
 Verbose logs can contain request headers and credentials. Review them before sharing.
 
-## Use a script-friendly command
+## Use Curlimp in scripts
 
-Aliases are intended for interactive shells. In a script, define a function or call Docker directly:
+Call the native command directly, or pin the Docker image version:
 
 ```sh
-curli() {
-  docker run --rm -i juanfontes/curlimp:0.3.0 "$@"
-}
+curlimp -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
+docker run --rm juanfontes/curlimp:0.3.0 \
+  -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```
-
-`"$@"` preserves argument boundaries. Do not concatenate arguments into a string or use `eval`.

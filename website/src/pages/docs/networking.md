@@ -10,14 +10,14 @@ lead: 'Bound your requests and inspect the transport when something does not beh
 ## Set connection and total time limits
 
 ```sh
-curli -sS --connect-timeout 5 --max-time 20 \
+curlimp -sS --connect-timeout 5 --max-time 20 \
   -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```
 
 `--connect-timeout` limits the connection phase. `--max-time` (or `-m`) limits the overall transfer, including redirects. Fractional seconds are accepted. These are limits, not a minimum request duration.
 
 ```sh
-curli -sS --connect-timeout 2.5 -m 10 https://httpbin.org/status/200
+curlimp -sS --connect-timeout 2.5 -m 10 https://httpbin.org/status/200
 ```
 
 Automatic retries are not implemented. A `503` response is returned to your script for it to handle.
@@ -63,11 +63,11 @@ Trust selection supports `--cacert`, `CURL_CA_BUNDLE`, `SSL_CERT_FILE` and `SSL_
 ## Inspect the negotiated HTTP version
 
 ```sh
-curli -sS --http2 -o /dev/null \
+curlimp -sS --http2 -o /dev/null \
   -w 'status=%{http_code} http=%{http_version}\n' \
   https://httpbin.org/status/200
 
-curli -sS --http1.1 -I https://httpbin.org/status/200
+curlimp -sS --http1.1 -I https://httpbin.org/status/200
 ```
 
 Negotiation depends on the server and engine. Selecting a protocol can also change a profile's behavior. The CLI accepts HTTP/3 selectors, but real-browser HTTP/3 fidelity is not verified by the current release tests.
@@ -75,9 +75,9 @@ Negotiation depends on the server and engine. Selecting a protocol can also chan
 ## Collect a useful diagnostic
 
 ```sh
-curli --version
-curli --list-profiles
-curli -sS -v --connect-timeout 5 --max-time 20 \
+curlimp --version
+curlimp --list-profiles
+curlimp -sS -v --connect-timeout 5 --max-time 20 \
   -o /dev/null https://httpbin.org/status/200
 ```
 

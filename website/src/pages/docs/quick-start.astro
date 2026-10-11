@@ -1,7 +1,7 @@
 ---
 import Doc from '../../layouts/Doc.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
-import { firstRequest, alias, version, release, docHref } from '../../lib/site';
+import { firstRequest, version, release, docHref } from '../../lib/site';
 const platforms = [
   {
     key: 'docker',
@@ -28,7 +28,7 @@ const platforms = [
   title="Quick start"
   slug="quick-start"
   section="Getting started"
-  description="Make your first browser-profile HTTP request with curlimp. Run Docker or a native bundle, create a curli alias and choose a browser profile."
+  description="Make your first browser-profile HTTP request with curlimp. Run Docker or a native bundle, enable Zsh autocomplete and choose a browser profile."
   lead="Send your first request with browser-specific TLS and HTTP settings. Chrome 150 and response decompression are enabled by default."
 >
   <section>
@@ -65,22 +65,43 @@ const platforms = [
     </p>
   </section>
   <section>
-    <h2>Use a shorter command</h2>
-    <p>Add an alias to your shell and keep the same curl-style options.</p>
-    <CodeBlock code={alias} />
-    <p class="caption">
-      Add it to <code>~/.zshrc</code> or <code>~/.bashrc</code> to keep it
-      across sessions. The guides use <code>curli</code> for this Docker alias.
+    <h2>Use curlimp with Zsh autocomplete</h2>
+    <p>
+      The guides below use the native <code>curlimp</code> command. Follow the{' '}
+      <a href={docHref('installation')}>installation and PATH setup</a>, then
+      add this to <code>~/.zshrc</code>:
+    </p>
+    <CodeBlock
+      code={`# Skip these first two lines if completion is already initialized.
+autoload -Uz compinit
+compinit
+
+source <(curlimp --completions zsh)
+zstyle ':completion:*:curlimp:*' menu yes select`}
+      lang="zsh"
+    />
+    <p>
+      Open a new terminal. Type <code>curlimp </code> and press Tab to list
+      profiles, or type any prefix such as <code>chrome1</code> before Tab to
+      filter them. Enter accepts a menu selection so you can finish the request.
+      See the <a href={docHref('completion')}>autocomplete guide</a> for
+      details.
+    </p>
+    <p>
+      For Docker, use the full <code>docker run</code> command with the same
+      request options. See the <a href={docHref('docker')}>Docker guide</a> for
+      file mounts and stdin.
     </p>
   </section>
   <section>
     <h2>Choose a browser profile</h2>
     <p>
-      Use <code>--impersonate</code> to select another profile.
+      Put an exact profile name before the URL, or use{' '}
+      <code>--impersonate</code>.
     </p>
     <CodeBlock
       code={
-        '# Request only the headers with Firefox\ncurli --impersonate firefox147 -sS -I https://httpbin.org/status/200'
+        '# Request only the headers with Firefox\ncurlimp firefox147 -sS -I https://httpbin.org/status/200'
       }
     />
   </section>
@@ -92,7 +113,7 @@ const platforms = [
     </p>
     <CodeBlock
       code={
-        "curli -sS -o /dev/null -w '%{http_code}\\n' https://httpbin.org/status/200"
+        "curlimp -sS -o /dev/null -w '%{http_code}\\n' https://httpbin.org/status/200"
       }
     />
     <p>

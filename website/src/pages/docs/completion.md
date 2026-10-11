@@ -58,6 +58,6 @@ Native downloads also include `completions/zsh/_curlimp`. As an alternative to s
 
 ## Docker and other shells
 
-This first integration supports Zsh with the native executable. A Docker image cannot configure the shell on your host, and the `curli` Docker alias does not receive this completion automatically. Use the native command for the setup above. Bash and Fish integrations can be added later without duplicating the Rust matching logic.
+This first integration supports Zsh with the native executable. Running a Docker image does not configure the shell on your host. Use the native command for the setup above. Bash and Fish integrations can be added later without duplicating the Rust matching logic.
 
 See the [profile catalog](/curlimp/docs/profiles/) for available names and [installation instructions](/curlimp/docs/installation/) for native bundles.

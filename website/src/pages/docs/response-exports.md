@@ -40,21 +40,21 @@ docker run --rm juanfontes/curlimp:latest \
   --json-output --impersonate firefox147 -sS -i https://httpbin.org/status/418
 ```
 
-No alias or directory mount is needed for terminal output. With the optional [curli alias](../docker/), these examples show the other response selections:
+Terminal output needs no directory mount. With the native `curlimp` command, these examples show the other response selections:
 
 ```sh
 # Headers only, as JSON.
-curli --json-output -sS -I https://httpbin.org/status/200
+curlimp --json-output -sS -I https://httpbin.org/status/200
 
 # Body only. This fixture deliberately returns an HTTP 418 with a small body.
-curli --json-output -sS https://httpbin.org/status/418
+curlimp --json-output -sS https://httpbin.org/status/418
 
 # Headers and body, using Firefox.
-curli --json-output --impersonate firefox147 -sS -i \
+curlimp --json-output --impersonate firefox147 -sS -i \
   https://httpbin.org/status/418
 
 # Follow redirects and include the received header blocks.
-curli --json-output -sS -L -i https://httpbin.org/status/301
+curlimp --json-output -sS -L -i https://httpbin.org/status/301
 ```
 
 These endpoints demonstrate response handling. They do not verify browser fingerprints. `/status/200` has an empty body, so use `/status/418` when you want to see body content.
@@ -80,10 +80,10 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
   --json-file -sS -I https://httpbin.org/status/200
 ```
 
-The basic `curli` alias does not mount your host directory. A file saved inside an unmounted container disappears when `--rm` removes it. For terminal JSON, no mount is needed. You can also use host shell redirection when you want to choose the filename yourself:
+Docker file exports require the volume mount shown above. A file saved inside an unmounted container disappears when `--rm` removes it. For terminal JSON, no mount is needed. You can also use host shell redirection when you want to choose the filename yourself:
 
 ```sh
-curli --json-output -sS -i https://httpbin.org/status/418 > response.json
+curlimp --json-output -sS -i https://httpbin.org/status/418 > response.json
 ```
 
 Shell redirection can overwrite an existing file; automatic export filenames never overwrite one.
@@ -147,7 +147,7 @@ The ordinary meanings of those curl-style flags are unchanged when export modes 
 HTTP status and process exit code are separate. To keep an error body while returning exit code 22:
 
 ```sh
-curli --json-output -sS --fail-with-body https://httpbin.org/status/502
+curlimp --json-output -sS --fail-with-body https://httpbin.org/status/502
 ```
 
 This intentionally exits with 22. The JSON also records `"status": 502` and `"exit_code": 22`. `-f` suppresses the error body; without a fail option, a completed HTTP error response does not itself produce a nonzero exit code.

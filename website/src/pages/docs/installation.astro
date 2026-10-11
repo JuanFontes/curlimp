@@ -118,22 +118,22 @@ const download = (platform: string) =>
   <p>
     Move the complete extracted directory to a permanent location and symlink
     its launcher into a directory on your <code>PATH</code>. Do not separate the
-    executable from its libraries. The guides' <code>curli</code> alias is
-    optional; replace it with your native command.
+    executable from its libraries. The guides use this native
+    <code>curlimp</code> command directly.
   </p>
   <h2>Enable Zsh autocomplete</h2>
   <p>
     The native command can supply browser profile suggestions for any prefix.
     Follow the <a href={docHref('completion')}>Zsh setup guide</a> to enable Tab
-    completion and optional menu selection. Docker aliases need a separate host
-    integration and are not supported by this first completion script.
+    completion and menu selection. This setup uses the native executable on your
+    host; running a Docker container does not configure your shell.
   </p>
   <h2>Upgrade</h2>
   <p>
     For native downloads, download and verify the new complete bundle. Updating
     it also refreshes its bundled dependencies and certificates. For a fixed
-    Docker version, change the tag in your command or alias when ready to
-    upgrade. For <code>latest</code>, refresh the locally cached image with:
+    Docker version, change the tag in your command when ready to upgrade. For{' '}
+    <code>latest</code>, refresh the locally cached image with:
   </p>
   <CodeBlock code={`docker pull ${image}`} />
   <p>

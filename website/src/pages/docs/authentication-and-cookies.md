@@ -12,7 +12,7 @@ lead: 'Send explicit credentials and cookie state. Profiles do not provide a bro
 Pass the username and password after `-u`:
 
 ```sh
-curli -sS -I -u 'demo:demo-password' https://httpbin.org/status/200
+curlimp -sS -I -u 'demo:demo-password' https://httpbin.org/status/200
 ```
 
 The status endpoint does not authenticate this sample account. This example demonstrates how to supply credentials. Use only credentials intended for the destination service.
@@ -24,7 +24,7 @@ Do not put `username:password` between flags and the URL without `-u`; the parse
 Set the Authorization header explicitly:
 
 ```sh
-curli -sS -I -H 'Authorization: Bearer demo-token' \
+curlimp -sS -I -H 'Authorization: Bearer demo-token' \
   https://httpbin.org/status/200
 ```
 
@@ -35,7 +35,7 @@ curli -sS -I -H 'Authorization: Bearer demo-token' \
 `-b` accepts a cookie string; repeat it for additional values:
 
 ```sh
-curli -sS -I -b 'theme=dark; mode=demo' https://httpbin.org/status/200
+curlimp -sS -I -b 'theme=dark; mode=demo' https://httpbin.org/status/200
 ```
 
 The status fixture does not echo the cookies. A real application decides whether a cookie is valid.

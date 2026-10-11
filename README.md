@@ -67,60 +67,50 @@ docker run --rm juanfontes/curlimp:latest firefox147 \
 curlimp firefox147 --json-output -sS -i https://httpbin.org/status/418
 ```
 
-### Tab-complete browser profiles in Zsh
+`latest` follows stable releases, but Docker reuses a locally cached image. Run `docker pull juanfontes/curlimp:latest` to update it. For scripts and CI, pin a version such as `0.3.0`, or a digest. [Updates and fixed versions →](https://juanfontes.github.io/curlimp/docs/docker/#updates-and-fixed-versions)
 
-With the native `curlimp` executable on your `PATH`, add this to `~/.zshrc` after your existing completion setup:
+### ⌨️ Use `curlimp` with Zsh autocomplete
+
+[Install the native bundle](https://juanfontes.github.io/curlimp/docs/installation/) and put `curlimp` on your `PATH`. Add this to `~/.zshrc`:
 
 ```zsh
-# Run these two lines only if your shell setup does not already initialize completion.
+# Skip these first two lines if your shell already initializes completion.
 autoload -Uz compinit
 compinit
 
 source <(curlimp --completions zsh)
-
-# Optional: choose a profile in a menu; Enter accepts it without running the command.
 zstyle ':completion:*:curlimp:*' menu yes select
 ```
 
-Type `curlimp ` and press Tab for all profiles. Type any prefix before Tab: `chrome1`, `chrome15`, `firefox14`, and `safari26` narrow the matches using the full text you typed. One match completes the name; several matches offer a choice. Use the complete profile name when executing a command. Chrome remains the default when no profile is selected.
-
-This first version completes **profile names only, in Zsh**, including after `--impersonate`. Bash, Fish, other flags and file completion are not included yet. Docker commands and aliases need integration in the host shell; running the image alone does not install autocomplete. [Completion setup and matching rules →](https://juanfontes.github.io/curlimp/docs/completion/)
-
-### Make it shorter: `curli`
-
-In Bash or Zsh:
+Open a new terminal. Type `curlimp ` and press **Tab** to list profiles, or type any prefix, such as `chrome1`, `firefox14`, or `safari26`, before Tab to filter them. Use the menu to select a profile; **Enter** inserts it so you can finish your request.
 
 ```sh
-alias curli='docker run --rm -i juanfontes/curlimp:latest'
-
-curli -sS -I https://httpbin.org/status/200
+curlimp firefox147 -sS -I https://httpbin.org/status/200
 ```
 
-Add the alias to `~/.zshrc` or `~/.bashrc` to keep it across sessions. Docker's `-i` forwards stdin. For scripts, use the full Docker command or a native executable. See the [Docker guide](https://juanfontes.github.io/curlimp/docs/docker/) for shell setup and mounting host files.
-
-`latest` follows stable releases, but Docker reuses a locally cached image. Run `docker pull juanfontes/curlimp:latest` to update it. For scripts and CI, pin a version such as `0.3.0`, or a digest. [Updates and fixed versions →](https://juanfontes.github.io/curlimp/docs/docker/#updates-and-fixed-versions)
+Completion currently supports **profile names in Zsh**, including after `--impersonate`. This setup uses the native executable on your host. [Autocomplete guide →](https://juanfontes.github.io/curlimp/docs/completion/)
 
 <a id="http-examples"></a>
 
 ## 🧰 Everyday examples
 
-Using the `curli` alias above:
+With the native `curlimp` command on your `PATH`:
 
 ```sh
 # Only the response body (this endpoint deliberately returns HTTP 418).
-curli -sS https://httpbin.org/status/418
+curlimp -sS https://httpbin.org/status/418
 
 # Response headers followed by the body.
-curli -sS -i https://httpbin.org/status/418
+curlimp -sS -i https://httpbin.org/status/418
 
 # Only the HTTP status code.
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
+curlimp -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 
 # Follow redirects and print the final status.
-curli -sS -L -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/301
+curlimp -sS -L -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/301
 
 # Return exit code 22 on this HTTP error, keeping any response body.
-curli -sS --fail-with-body https://httpbin.org/status/502
+curlimp -sS --fail-with-body https://httpbin.org/status/502
 ```
 
 The examples use `-sS` to keep error messages visible. HTTP errors only cause a nonzero exit code when a fail option is enabled. `/status/200` has an empty body; `/status/418` includes a small body. These endpoints demonstrate HTTP behavior, not browser fingerprint fidelity.
@@ -159,13 +149,13 @@ Release `0.3.0` includes **39 browser and client profiles**, covering Chrome, Fi
 
 ```sh
 # Firefox desktop.
-curli --impersonate firefox147 -sS -I https://httpbin.org/status/200
+curlimp firefox147 -sS -I https://httpbin.org/status/200
 
 # Safari on iOS.
-curli --impersonate safari260_ios -sS -I https://httpbin.org/status/200
+curlimp safari260_ios -sS -I https://httpbin.org/status/200
 
 # List the profiles supported by your installed engine.
-curli --list-profiles
+curlimp --list-profiles
 ```
 
 The profile's target platform is independent of your host OS. Profiles are versioned presets; selecting a Tor Browser profile does not route traffic through Tor.
@@ -199,7 +189,7 @@ The [Docker image](https://hub.docker.com/r/juanfontes/curlimp) supports Linux a
 - Browser fingerprint equivalence has not yet been verified against real browser captures. HTTP/3 is exposed by the engine but has not been validated end to end.
 - `--no-impersonate` disables browser presets while keeping the same modified engine; it does not switch to your system curl.
 
-See the **[compatibility guide](https://juanfontes.github.io/curlimp/docs/compatibility/)** when using Curlimp in scripts. Run `curli --help` for supported flags and `curli --version` for the installed release and default profile.
+See the **[compatibility guide](https://juanfontes.github.io/curlimp/docs/compatibility/)** when using Curlimp in scripts. Run `curlimp --help` for supported flags and `curlimp --version` for the installed release and default profile.
 
 ## 📚 Go deeper
 

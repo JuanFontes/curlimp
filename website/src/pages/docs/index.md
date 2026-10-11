@@ -14,10 +14,10 @@ The Rust CLI handles arguments, inputs and outputs. A small C bridge calls the n
 
 ## Your first request
 
-Follow the [quick start](./quick-start/) to use Docker or a native download. The guides use a `curli` Docker alias so the examples stay short:
+Follow the [quick start](./quick-start/) to use Docker or a native download. With the native `curlimp` command on your `PATH`:
 
 ```sh
-curli -sS -I https://httpbin.org/status/200
+curlimp -sS -I https://httpbin.org/status/200
 ```
 
 Chrome 150 is the default profile. Responses are decompressed automatically while a profile is active. Select another profile with `--impersonate`; disable profiles with `--no-impersonate`.
@@ -45,4 +45,4 @@ Functional HTTP/TLS tests demonstrate supported client behavior. They do **not**
 
 Examples target `https://httpbin.org/status/200` and other `/status/…` endpoints. They return a chosen HTTP status; many deliberately have an empty body. They do not echo JSON, validate the sample credentials, or act as a cookie-based application. The guides explain what each command sends or displays without implying otherwise.
 
-Unless stated otherwise, examples use Bash or Zsh. For a native installation on your `PATH`, replace `curli` with `curlimp`.
+Unless stated otherwise, examples use Bash or Zsh and the native `curlimp` command on your `PATH`. Docker examples show the full `docker run` command; see the [Docker guide](./docker/) for mounts, stdin and environment variables.

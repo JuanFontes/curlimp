@@ -32,7 +32,7 @@ export const groups = [
     pages: [
       { slug: 'quick-start', title: 'Quick start' },
       { slug: 'installation', title: 'Installation' },
-      { slug: 'docker', title: 'Docker & aliases' },
+      { slug: 'docker', title: 'Docker' },
     ],
   },
   {
@@ -63,4 +63,3 @@ export const pages = groups.flatMap((group) => group.pages);
 export const docHref = (slug = '') => href(`docs${slug ? `/${slug}` : ''}`);
 
 export const firstRequest = `docker run --rm \\\n  ${image} \\\n  -sS -I https://httpbin.org/status/200`;
-export const alias = `alias curli='docker run --rm -i ${image}'`;

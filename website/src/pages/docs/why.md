@@ -18,10 +18,10 @@ Browser impersonation is the normal path. Running a request selects the release'
 
 ```sh
 # Default Chrome profile
-curli -sS -I https://httpbin.org/status/200
+curlimp -sS -I https://httpbin.org/status/200
 
 # Select Safari
-curli --impersonate safari2601 -sS -I https://httpbin.org/status/200
+curlimp --impersonate safari2601 -sS -I https://httpbin.org/status/200
 ```
 
 The default also enables response decompression. Explicit options remain available when a script needs different behavior.

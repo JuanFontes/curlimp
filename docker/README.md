@@ -34,7 +34,7 @@ docker run --rm juanfontes/curlimp:latest safari2601 \
   --json-output -sS -i https://httpbin.org/status/418
 ```
 
-Flags may appear before or after the profile. `--impersonate PROFILE` still works; the last profile selection wins. Use a complete profile ID, not a prefix. Zsh profile autocomplete is available for native `curlimp` installations through `--completions zsh`; running Docker does not configure your host shell or aliases. [Autocomplete guide](https://juanfontes.github.io/curlimp/docs/completion/).
+Flags may appear before or after the profile. `--impersonate PROFILE` still works; the last profile selection wins. Use a complete profile ID, not a prefix.
 
 - **`latest`** is used in the examples and follows the newest validated stable release. Release candidates never replace it.
 - **`0.3.0`** is the versioned tag for this release; versioned tags remain unchanged.
@@ -42,22 +42,30 @@ Flags may appear before or after the profile. `--impersonate PROFILE` still work
 
 This is an HTTP client, so it does not open a browser, render pages, or execute JavaScript. Version 0.3.0 supports **one URL per invocation and a documented subset of curl flags**.
 
-## ⌨️ A shorter command: `curli`
+## ⌨️ Native `curlimp` and Zsh autocomplete
 
-In Bash or Zsh, define an alias and pass options and a URL after it:
+Prefer a command without Docker? [Install the native bundle](https://juanfontes.github.io/curlimp/docs/installation/) and put `curlimp` on your `PATH`:
 
 ```sh
-alias curli='docker run --rm -i juanfontes/curlimp:latest'
-
-curli -sS -I https://httpbin.org/status/200
-curli --impersonate firefox147 -sS -I https://httpbin.org/status/200
+curlimp firefox147 -sS -I https://httpbin.org/status/200
 ```
 
-Add the alias line to `~/.zshrc` for Zsh or `~/.bashrc` for Bash to keep it across terminal sessions. Bash login shells must source `~/.bashrc` from `~/.bash_profile`. Use the full Docker command in scripts. Docker's `-i` forwards stdin; host files passed with CLI options require an explicit volume mount, while shell redirection and pipes work normally.
+For profile autocomplete, add this to `~/.zshrc`:
+
+```zsh
+# Skip these first two lines if your shell already initializes completion.
+autoload -Uz compinit
+compinit
+
+source <(curlimp --completions zsh)
+zstyle ':completion:*:curlimp:*' menu yes select
+```
+
+Open a new terminal, type `curlimp ` and press Tab to list profiles. Any prefix filters the list; Enter accepts the selected name so you can finish the request. This setup requires the native executable on your host. [Autocomplete guide](https://juanfontes.github.io/curlimp/docs/completion/).
 
 ## 🔄 Updates and fixed versions
 
-Docker uses an image already stored locally unless you ask it to pull. The `latest` tag does not automatically refresh on every run. Update the image used by the alias with:
+Docker uses an image already stored locally unless you ask it to pull. The `latest` tag does not automatically refresh on every run. Update your local image with:
 
 ```sh
 docker pull juanfontes/curlimp:latest
@@ -282,31 +290,42 @@ Verbose output goes to stderr; response bodies go to stdout or `-o`. The runtime
 
 ### More everyday recipes
 
-With the `curli` alias above:
+Pass the request options directly after the image name:
 
 ```sh
 # Success, no-content, not-found, rate-limit, and unavailable responses.
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/201
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/204
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/404
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/429
-curli -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/503
+docker run --rm juanfontes/curlimp:latest \
+  -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/201
+docker run --rm juanfontes/curlimp:latest \
+  -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/204
+docker run --rm juanfontes/curlimp:latest \
+  -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/404
+docker run --rm juanfontes/curlimp:latest \
+  -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/429
+docker run --rm juanfontes/curlimp:latest \
+  -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/503
 
 # Follow redirects, print the header chain, and discard the body.
-curli -sS -L --max-redirs 5 -D - -o /dev/null https://httpbin.org/status/302
+docker run --rm juanfontes/curlimp:latest \
+  -sS -L --max-redirs 5 -D - -o /dev/null https://httpbin.org/status/302
 
 # Distinguish HTTP status from the transfer exit status.
-curli -sS -o /dev/null -w 'http=%{http_code} exit=%{exitcode}\n' https://httpbin.org/status/404
+docker run --rm juanfontes/curlimp:latest \
+  -sS -o /dev/null -w 'http=%{http_code} exit=%{exitcode}\n' https://httpbin.org/status/404
 
 # Send JSON with an explicit method (the fixture does not echo it).
-curli -sS -i -X PUT --json '{"enabled":true}' https://httpbin.org/status/200
+docker run --rm juanfontes/curlimp:latest \
+  -sS -i -X PUT --json '{"enabled":true}' https://httpbin.org/status/200
 
 # Send form fields or a cookie.
-curli -sS -i -d 'name=demo' -d 'mode=test' https://httpbin.org/status/201
-curli -sS -I -b 'theme=dark' https://httpbin.org/status/200
+docker run --rm juanfontes/curlimp:latest \
+  -sS -i -d 'name=demo' -d 'mode=test' https://httpbin.org/status/201
+docker run --rm juanfontes/curlimp:latest \
+  -sS -I -b 'theme=dark' https://httpbin.org/status/200
 
 # Inspect the negotiated protocol and total duration.
-curli -sS -o /dev/null -w 'http=%{http_version} seconds=%{time_total}\n' https://httpbin.org/status/200
+docker run --rm juanfontes/curlimp:latest \
+  -sS -o /dev/null -w 'http=%{http_version} seconds=%{time_total}\n' https://httpbin.org/status/200
 ```
 
 Status endpoints select the response code; they do not echo request data, validate the sample credentials or emulate a login flow. `/status/200` has an empty body, while `/status/418` deliberately returns an error with a small body. HTTP errors only cause a failed transfer result when a fail flag is enabled.
@@ -330,8 +349,6 @@ Read the [body/header guide](https://juanfontes.github.io/curlimp/docs/body-and-
 The published platforms have native CI coverage for packaged HTTP/TLS/HTTP2 transfers, profile selection, output handling, and certificate overrides. Linux also tests the assembled minimal filesystem. These are functional checks; **successful requests and echoed headers do not prove fingerprint equivalence to a real browser**.
 
 Current limits include one HTTP(S) URL per process, a subset of curl flags, no `.curlrc`/`--config`, `--next`, multipart, retries, parallel transfers, or progress meter. HTTP/3 is exposed by the engine but has not been validated end to end. See the [full compatibility contract](https://juanfontes.github.io/curlimp/docs/compatibility/).
-
-**Upgrading from RC1/RC2:** impersonation now defaults to Chrome 150. Add `--no-impersonate` to retain the earlier unprofiled behavior. RC3 already uses this default. Since 0.1.1, active profiles also decode compressed responses automatically; use `--no-compressed` if you need the earlier encoded output. Existing `--compressed` commands remain valid.
 
 ## 🛠️ Source, maintenance, and license
 

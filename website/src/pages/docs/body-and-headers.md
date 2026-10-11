@@ -12,13 +12,13 @@ lead: 'Choose exactly what goes to your terminal, a file, or the next command in
 The body is the default output. `-s` enables silent mode, and `-S` keeps error messages visible. This CLI has no progress meter.
 
 ```sh
-curli -sS https://httpbin.org/status/418
+curlimp -sS https://httpbin.org/status/418
 ```
 
 The `418` endpoint deliberately returns an HTTP error and a small response body. Without `-f` or `--fail-with-body`, a successfully transferred HTTP error can still have process exit code `0`.
 
 ```sh
-curli -sS https://httpbin.org/status/200
+curlimp -sS https://httpbin.org/status/200
 ```
 
 The `200` endpoint has an empty body. No printed text is expected; use `-I` or `-w` to inspect it.
@@ -28,7 +28,7 @@ The `200` endpoint has an empty body. No printed text is expected; use `-I` or `
 `-I` (uppercase i) sends a **HEAD request** and prints response headers:
 
 ```sh
-curli -sS -I https://httpbin.org/status/200
+curlimp -sS -I https://httpbin.org/status/200
 ```
 
 A server may handle HEAD differently from GET. Avoid `-X HEAD` as a replacement: changing the method string does not enable HEAD's body-handling behavior.
@@ -38,7 +38,7 @@ A server may handle HEAD differently from GET. Avoid `-X HEAD` as a replacement:
 To keep the GET method, dump headers to stdout with `-D -` and discard the body with `-o /dev/null`:
 
 ```sh
-curli -sS -D - -o /dev/null https://httpbin.org/status/200
+curlimp -sS -D - -o /dev/null https://httpbin.org/status/200
 ```
 
 This still downloads and discards any body. It is useful when HEAD is unsupported or you need the headers of the actual GET response.
@@ -48,7 +48,7 @@ This still downloads and discards any body. It is useful when HEAD is unsupporte
 `-i` (lowercase i) includes headers before the body:
 
 ```sh
-curli -sS -i https://httpbin.org/status/418
+curlimp -sS -i https://httpbin.org/status/418
 ```
 
 With redirects, output can contain multiple header blocks. Avoid piping this combined output into a parser that expects only a body.
@@ -76,10 +76,10 @@ An active profile enables HTTP content decoding automatically. `--no-compressed`
 
 ```sh
 # Retain the response bytes without content decoding
-curli --no-compressed -sS https://httpbin.org/status/200 > response.body
+curlimp --no-compressed -sS https://httpbin.org/status/200 > response.body
 
 # Disable profiles, but explicitly enable decoding
-curli --no-impersonate --compressed -sS https://httpbin.org/status/200
+curlimp --no-impersonate --compressed -sS https://httpbin.org/status/200
 ```
 
 The status endpoint is a command-syntax example, not a compressed-payload fixture. On a response that is compressed, the decoded body and received headers may describe different byte lengths: `Content-Encoding` and `Content-Length` retain their original values.
