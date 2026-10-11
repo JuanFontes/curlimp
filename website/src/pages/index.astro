@@ -1,0 +1,154 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import ReleasePreview from '../components/ReleasePreview.astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import Icon from '../components/Icon.astro';
+import {
+  version,
+  docHref,
+  firstRequest,
+  repository,
+  dockerHub,
+  absolute,
+  href,
+} from '../lib/site';
+const description =
+  'Browser impersonation from your terminal. Use browser-specific TLS and HTTP profiles with curl-style commands, Docker, Linux and Apple Silicon downloads.';
+const software = {
+  '@type': 'SoftwareSourceCode',
+  name: 'curlimp',
+  description,
+  url: absolute(),
+  codeRepository: repository,
+  programmingLanguage: ['Rust', 'C'],
+  license: `${repository}/blob/main/LICENSE`,
+  version,
+  runtimePlatform: 'Linux; macOS Apple Silicon (experimental)',
+};
+---
+
+<Base
+  title="Browser impersonation from your terminal"
+  description={description}
+  structured={[software]}
+>
+  <Header />
+  <main id="main-content" class="home">
+    <ReleasePreview />
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">Open source · v{version}</p>
+        <h1 id="hero-title">
+          Browser profiles.
+          <br />
+          Your terminal.
+          <br />
+          One command.
+        </h1>
+        <p class="lead">
+          Browser-specific TLS and HTTP settings,
+          <br class="desktop-break" /> with familiar curl-style commands.
+        </p>
+        <div class="hero-actions">
+          <a class="button" href={docHref('quick-start')}>
+            Get started
+          </a>
+          <a class="text-link" href={docHref()}>
+            Read the docs <Icon name="arrow-right" />
+          </a>
+        </div>
+      </div>
+      <div class="hero-terminal">
+        <div class="terminal-bar">
+          <span class="terminal-status" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
+          <span>curlimp</span>
+          <span></span>
+        </div>
+        <div class="terminal-code">
+          <CodeBlock code={firstRequest} />
+        </div>
+        <p class="terminal-note">
+          # Chrome 150 by default. Responses decoded automatically.
+        </p>
+      </div>
+    </section>
+    <div class="platform-line">
+      <span>Docker</span>
+      <span>·</span>
+      <span>Linux amd64 / arm64</span>
+      <span>·</span>
+      <span>
+        macOS Apple Silicon <span class="muted">(experimental)</span>
+      </span>
+    </div>
+    <section class="project-section" aria-labelledby="project-title">
+      <div>
+        <p class="eyebrow">The project</p>
+        <h2 id="project-title">A practical home for browser impersonation.</h2>
+        <p>
+          curlimp provides ready-to-run releases and a maintainable command-line
+          interface for browser impersonation, built on an existing native
+          engine.
+        </p>
+        <p>
+          Choose a browser profile, inspect an HTTP response, and use familiar
+          commands in your scripts. The CLI supports a documented subset of curl
+          options; browser fingerprint equivalence is not yet verified.
+        </p>
+        <a class="text-link" href={docHref('why')}>
+          Why this project exists <Icon name="arrow-right" />
+        </a>
+      </div>
+      <div>
+        <p class="eyebrow">How it works</p>
+        <div
+          class="architecture-chain"
+          aria-label="Rust CLI to C bridge to libcurl"
+        >
+          <div class="architecture-step">
+            <strong>Rust CLI</strong>
+            <span>
+              Arguments, output
+              <br />
+              and errors
+            </span>
+          </div>
+          <Icon name="arrow-right" />
+          <div class="architecture-step">
+            <strong>C bridge</strong>
+            <span>
+              Bindings to the
+              <br />
+              native engine
+            </span>
+          </div>
+          <Icon name="arrow-right" />
+          <div class="architecture-step">
+            <strong>libcurl</strong>
+            <span>
+              HTTP transport
+              <br />
+              and browser profiles
+            </span>
+          </div>
+        </div>
+        <a class="text-link" href={docHref('architecture')}>
+          Explore the architecture <Icon name="arrow-right" />
+        </a>
+      </div>
+    </section>
+    <footer class="home-footer">
+      <p>An HTTP client. No page rendering or JavaScript execution.</p>
+      <nav aria-label="Footer">
+        <a href={dockerHub}>Docker Hub</a>
+        <a href={`${repository}/blob/main/LICENSE`}>MIT license</a>
+        <a href={`${href()}sitemap.xml`}>Sitemap</a>
+      </nav>
+    </footer>
+  </main>
+</Base>

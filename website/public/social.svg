@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0b0f0e" />
+  <rect x="1" y="1" width="1198" height="628" rx="18" fill="none" stroke="#28352f" stroke-width="2" />
+  <g font-family="Arial, sans-serif">
+    <text x="64" y="93" fill="#8cdbaf" font-family="monospace" font-size="34">$ <tspan fill="#eef3f0">curlimp</tspan></text>
+    <text x="1136" y="88" text-anchor="end" fill="#a8b4ad" font-size="18">OPEN SOURCE</text>
+    <path d="M64 123H1136" stroke="#28352f" />
+    <text x="64" y="222" fill="#eef3f0" font-size="62" font-weight="700">Browser profiles.</text>
+    <text x="64" y="294" fill="#eef3f0" font-size="62" font-weight="700">Your terminal.</text>
+    <text x="64" y="366" fill="#8cdbaf" font-size="62" font-weight="700">One command.</text>
+    <text x="64" y="423" fill="#a8b4ad" font-size="23">Browser-specific TLS and HTTP. Familiar curl-style commands.</text>
+    <rect x="64" y="461" width="1072" height="74" rx="8" fill="#101614" stroke="#28352f" />
+    <text x="88" y="506" fill="#eef3f0" font-family="monospace" font-size="22"><tspan fill="#8cdbaf">$ </tspan>curlimp firefox147 -sS -I https://httpbin.org/status/200</text>
+    <text x="64" y="586" fill="#a8b4ad" font-size="19">Rust CLI + libcurl · Docker · Native downloads · Response exports</text>
+  </g>
+</svg>

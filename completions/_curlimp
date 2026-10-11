@@ -1,0 +1,18 @@
+#compdef curlimp
+
+_curlimp() {
+  local -a profiles expl
+  profiles=("${(@f)$(command "$words[1]" --complete-profiles "${(@)words[2,CURRENT]}" 2>/dev/null)}")
+  [[ -n $profiles[1] ]] || return 1
+  if [[ $PREFIX == --impersonate=* ]]; then
+    compset -P '--impersonate='
+  fi
+  _wanted profiles expl 'browser profile' compadd -Q -a profiles
+}
+
+# Support both autoloading through fpath and sourcing the generated script.
+if [[ $ZSH_EVAL_CONTEXT == *:file ]]; then
+  compdef _curlimp curlimp
+else
+  _curlimp "$@"
+fi

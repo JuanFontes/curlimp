@@ -1,0 +1,43 @@
+# Build output and exported runtimes.
+/target/
+/dist/
+/.native/
+
+# Local session instructions and working notes.
+/docs/
+/AGENTS.md
+/website/node_modules/
+/website/dist/
+/website/.astro/
+/.superpowers/
+/.agents/
+
+# Local environment and authentication configuration.
+.env
+.env.*
+!.env.example
+/.aws/
+/.docker/
+/.kube/
+/.ssh/
+
+# Files produced by the README output examples.
+/response.headers
+/response.json
+/response.body
+/????-??-??_??-??-??_*.txt
+/????-??-??_??-??-??_*.json
+
+# Python environments and test caches.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor and operating-system files.
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store

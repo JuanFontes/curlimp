@@ -1,0 +1,38 @@
+---
+import Icon from './Icon.astro';
+import { href, docHref, repository, release } from '../lib/site';
+const { docs = false } = Astro.props;
+---
+
+<header class:list={['site-header', { 'docs-header': docs }]}>
+  <div class="header-inner">
+    <a class="wordmark" href={href()} aria-label="curlimp home">
+      <span class="prompt">$</span> curlimp
+    </a>
+    <nav class="top-nav" aria-label="Main navigation">
+      <a href={docHref('quick-start')} class:list={{ active: docs }}>
+        Documentation
+      </a>
+      <a href={docHref('profiles')}>Profiles</a>
+      <a href={repository}>
+        GitHub <Icon name="external-link" />
+      </a>
+      {docs && (
+        <a class="button small outline" href={release}>
+          Download
+        </a>
+      )}
+    </nav>
+    {docs && (
+      <button
+        class="mobile-menu"
+        aria-controls="docs-sidebar"
+        aria-expanded="false"
+        type="button"
+        hidden
+      >
+        <Icon name="menu-2" /> Menu
+      </button>
+    )}
+  </div>
+</header>

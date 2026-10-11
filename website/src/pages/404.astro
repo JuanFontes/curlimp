@@ -1,0 +1,23 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import { docHref } from '../lib/site';
+---
+
+<Base
+  title="Page not found"
+  description="This documentation page does not exist. Return to the curlimp quick start."
+  noindex
+>
+  <Header />
+  <main id="main-content" class="not-found">
+    <p class="eyebrow muted">404</p>
+    <h1>This page took a wrong turn.</h1>
+    <p class="lead">
+      The request is fine. The documentation address might have changed.
+    </p>
+    <a class="button" href={docHref('quick-start')}>
+      Back to the quick start
+    </a>
+  </main>
+</Base>

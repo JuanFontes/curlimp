@@ -1,0 +1,109 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import { firstRequest, alias, version, release, docHref } from '../../lib/site';
+const platforms = [
+  {
+    key: 'docker',
+    name: 'Docker',
+    code: firstRequest,
+    note: 'Docker downloads the image automatically on first use.',
+  },
+  {
+    key: 'linux',
+    name: 'Linux',
+    code: `tar -xzf curlimp-${version}-linux-amd64.tar.gz\n./curlimp-${version}-linux-amd64/curlimp \\\n  -sS -I https://httpbin.org/status/200`,
+    note: 'After downloading and verifying the bundle. Replace amd64 with arm64 on ARM Linux.',
+  },
+  {
+    key: 'macos',
+    name: 'macOS',
+    code: `tar -xzf curlimp-${version}-macos-arm64.tar.gz\n./curlimp-${version}-macos-arm64/curlimp \\\n  -sS -I https://httpbin.org/status/200`,
+    note: 'After downloading and verifying the Apple Silicon bundle. Native macOS support is experimental.',
+  },
+];
+---
+
+<Doc
+  title="Quick start"
+  slug="quick-start"
+  section="Getting started"
+  description="Make your first browser-profile HTTP request with curlimp. Run Docker or a native bundle, create a curli alias and choose a browser profile."
+  lead="Send your first request with browser-specific TLS and HTTP settings. Chrome 150 and response decompression are enabled by default."
+>
+  <section>
+    <h2>Make your first request</h2>
+    <div class="install-tabs" data-tabs>
+      <div
+        class="tab-list"
+        data-tab-list
+        aria-label="Installation platform"
+        hidden
+      >
+        {platforms.map((p) => (
+          <button
+            type="button"
+            id={`tab-${p.key}`}
+            data-tab
+            aria-controls={`panel-${p.key}`}
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
+      {platforms.map((p) => (
+        <div class="tab-panel" data-panel id={`panel-${p.key}`} tabindex="0">
+          <h3 class="panel-heading">{p.name}</h3>
+          <CodeBlock code={p.code} />
+          <p class="caption">{p.note}</p>
+        </div>
+      ))}
+    </div>
+    <p class="caption">
+      Native packages: <a href={release}>download the release</a> and follow the{' '}
+      <a href={docHref('installation')}>checksum and installation guide</a>.
+    </p>
+  </section>
+  <section>
+    <h2>Use a shorter command</h2>
+    <p>Add an alias to your shell and keep the same curl-style options.</p>
+    <CodeBlock code={alias} />
+    <p class="caption">
+      Add it to <code>~/.zshrc</code> or <code>~/.bashrc</code> to keep it
+      across sessions. The guides use <code>curli</code> for this Docker alias.
+    </p>
+  </section>
+  <section>
+    <h2>Choose a browser profile</h2>
+    <p>
+      Use <code>--impersonate</code> to select another profile.
+    </p>
+    <CodeBlock
+      code={
+        '# Request only the headers with Firefox\ncurli --impersonate firefox147 -sS -I https://httpbin.org/status/200'
+      }
+    />
+  </section>
+  <section>
+    <h2>See the response status</h2>
+    <p>
+      <code>/status/200</code> intentionally returns an empty body. A blank
+      terminal can be a successful request. Print the status to check:
+    </p>
+    <CodeBlock
+      code={
+        "curli -sS -o /dev/null -w '%{http_code}\\n' https://httpbin.org/status/200"
+      }
+    />
+    <p>
+      This prints <code>200</code>. Try <code>/status/404</code> or{' '}
+      <code>/status/502</code> to inspect an error response. They are deliberate
+      HTTP errors, not connection failures.
+    </p>
+    <p>
+      Continue with <a href={docHref('body-and-headers')}>body and headers</a>,{' '}
+      <a href={docHref('redirects-and-status')}>redirects and status codes</a>,
+      or the <a href={docHref('docker')}>Docker and file-path guide</a>.
+    </p>
+  </section>
+</Doc>

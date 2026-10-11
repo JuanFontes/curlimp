@@ -1,0 +1,123 @@
+---
+import Base from './Base.astro';
+import Header from '../components/Header.astro';
+import ReleasePreview from '../components/ReleasePreview.astro';
+import Icon from '../components/Icon.astro';
+import {
+  groups,
+  pages,
+  docHref,
+  version,
+  repository,
+  absolute,
+} from '../lib/site';
+const data = Astro.props.frontmatter ?? Astro.props;
+const {
+  title,
+  description,
+  slug = '',
+  lead = description,
+  section = 'Documentation',
+} = data;
+const index = pages.findIndex((page) => page.slug === slug);
+const prev = pages[index - 1];
+const next = pages[index + 1];
+const structured = [
+  {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: absolute() },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Documentation',
+        item: absolute('docs'),
+      },
+      ...(slug
+        ? [
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: title,
+              item: absolute(`docs/${slug}`),
+            },
+          ]
+        : []),
+    ],
+  },
+];
+---
+
+<Base title={title} description={description} structured={structured}>
+  <Header docs />
+  <div class="docs-shell">
+    <aside class="docs-sidebar" id="docs-sidebar">
+      <nav aria-label="Documentation">
+        {groups.map((group) => (
+          <div class="nav-group">
+            <p class="nav-label">{group.label}</p>
+            {group.pages.map((page) => (
+              <a
+                href={docHref(page.slug)}
+                aria-current={page.slug === slug ? 'page' : undefined}
+              >
+                {page.title}
+              </a>
+            ))}
+          </div>
+        ))}
+      </nav>
+      <div class="sidebar-version">
+        v{version} <span>·</span>{' '}
+        <a href={`${repository}/releases`}>Changelog</a>
+      </div>
+    </aside>
+    <main id="main-content" class="doc-main">
+      <ReleasePreview />
+      <div class="breadcrumbs">
+        <a href={docHref()}>Documentation</a>
+        {slug && (
+          <>
+            <span>/</span>
+            <span>{section}</span>
+          </>
+        )}
+      </div>
+      <article class="prose">
+        <div class="article-heading">
+          <h1>{title}</h1>
+          <p class="lead">{lead}</p>
+        </div>
+        <slot />
+      </article>
+      <nav class="page-pagination" aria-label="Adjacent pages">
+        {prev ? (
+          <a href={docHref(prev.slug)}>
+            <Icon name="arrow-left" />
+            <span>
+              <small>Previous</small>
+              {prev.title}
+            </span>
+          </a>
+        ) : (
+          <span />
+        )}
+        {next && (
+          <a href={docHref(next.slug)} class="next">
+            <span>
+              <small>Next</small>
+              {next.title}
+            </span>
+            <Icon name="arrow-right" />
+          </a>
+        )}
+      </nav>
+      <footer class="doc-footer">
+        <a href={`${repository}/tree/main/website`}>
+          Improve these docs <Icon name="external-link" />
+        </a>
+        <span>curlimp · v{version}</span>
+      </footer>
+    </main>
+  </div>
+</Base>

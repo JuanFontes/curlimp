@@ -1,0 +1,4 @@
+# Use LF for project text, including scripts copied into Linux images.
+* text=auto eol=lf
+# Keep the verified engine snapshot byte-for-byte identical across checkouts.
+vendor/curl-impersonate/** -text

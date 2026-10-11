@@ -1,0 +1,80 @@
+Curlimp — browser impersonation with a Rust CLI and a modified libcurl engine
+Usage: curlimp [options] [PROFILE] <URL> [options]
+Browser impersonation is enabled by default with chrome150.
+An exact profile name before the URL is shorthand for --impersonate PROFILE.
+Flags may appear before or after the profile. Use --url HOST or http://HOST
+when a hostname has the same name as a profile. Prefixes are for Tab completion,
+not abbreviated profile names. Use --completions zsh for the completion script.
+Response decompression is automatic while a profile is active.
+
+Requests:
+  -X, --request METHOD          Custom HTTP method
+  -I, --head                    HEAD request, print headers
+  -G, --get                     Send data as URL query
+  -H, --header HEADER           Add/override header (repeatable, @file supported)
+  -A, --user-agent STRING       User-Agent override
+  -e, --referer URL             Referer header
+  -d, --data DATA               POST form data; @file or @- strips CR/LF/NUL
+      --data-raw DATA           Literal data, including a leading @
+      --data-binary DATA        Binary data; @file and @- supported
+      --json DATA               JSON body with JSON headers
+  -u, --user USER:PASSWORD      HTTP basic credentials
+  -b, --cookie DATA|FILE        Cookies or cookie file (repeatable)
+  -c, --cookie-jar FILE         Save cookies
+
+Transport:
+      --impersonate PROFILE     Select browser profile; optional :yes or :no
+      --no-impersonate          Disable browser profiles, including environment defaults
+      --list-profiles          List profiles validated against the loaded engine
+      --completions zsh        Print Zsh completion script for profile names
+  -L, --location               Follow redirects (default limit: 50)
+      --max-redirs N           Redirect limit; -1 for unlimited
+      --compressed             Request and decode compressed responses (profile default)
+      --no-compressed          Return encoded response bytes without decompression
+  -x, --proxy URL              HTTP/SOCKS proxy
+  -U, --proxy-user USER:PASS    Proxy credentials
+      --noproxy HOSTS          Comma-separated proxy bypass list
+  -m, --max-time SECONDS       Overall timeout (fractional values allowed)
+      --connect-timeout SEC    Connection timeout
+      --cacert FILE            CA certificate bundle
+  -k, --insecure               Explicitly disable certificate verification
+      --http1.0|--http1.1|--http2|--http3|--http3-only
+
+Output:
+  -o, --output FILE            Body destination; - means stdout
+  -D, --dump-header FILE       Header destination; - means stdout
+  -i, --include                Include response headers in body output
+  -f, --fail                   HTTP >= 400: exit 22 and suppress body
+      --fail-with-body         HTTP >= 400: exit 22 and retain body
+  -s, --silent                 Suppress error messages
+  -S, --show-error             Show errors even with --silent
+  -v, --verbose                Native diagnostics to stderr
+  -N, --no-buffer              Flush each received chunk
+  -w, --write-out FORMAT       Supports @file and variables below
+  -q, --disable                Accepted; Curlimp does not load .curlrc
+  -h, --help                   Show this help
+  -V, --version                CLI and actual engine versions
+
+Response exports (project extensions, choose one):
+      --txt                    Save selected response bytes to an automatic .txt file
+      --json-output            Print one structured JSON response object to stdout
+      --json-file              Save that JSON object to an automatic .json file
+  Default: body only; -i adds headers; -I selects headers only. -v stays on stderr.
+  Files use the current directory; Docker needs a mounted directory to retain them.
+  Export modes reject -o, -D and -w; JSON modes also reject -N.
+  JSON buffers up to 64 MiB and uses explicit base64 for non-UTF-8 bytes.
+  --json DATA still sends a request body; it is not an output selector.
+
+Write-out: http_code, response_code, url_effective, content_type,
+           num_redirects, http_version, time_total, exitcode; %% and \n \r \t.
+
+Curlimp supports a subset of curl: one HTTP(S) URL, no .curlrc/--config/--next,
+URL globbing, multipart, streaming uploads, retry, parallelism or progress meter.
+Profile priority: last positional profile or --impersonate/--no-impersonate flag, CURL_IMPERSONATE,
+then chrome150. The default is pinned to the release, not updated at runtime.
+CURL_IMPERSONATE_HEADERS=no disables headers for an environment/default profile;
+explicit --impersonate uses its :yes/:no suffix (headers enabled if omitted).
+Compression priority: last --compressed/--no-compressed flag, then profile default.
+With --no-impersonate, decoding is opt-in via --compressed.
+Unknown flags and write-out variables fail explicitly.
+Request bodies are buffered. Ordinary output and TXT exports stream bytes; JSON exports buffer up to 64 MiB.

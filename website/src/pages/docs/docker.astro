@@ -1,0 +1,114 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import {
+  image,
+  versionedImage,
+  alias,
+  dockerHub,
+  docHref,
+  repository,
+} from '../../lib/site';
+---
+
+<Doc
+  title="Docker and the curli alias"
+  slug="docker"
+  section="Getting started"
+  description="Use the published curlimp Docker image, configure a Bash or Zsh alias, mount host files, pass environment variables and understand container boundaries."
+>
+  <h2>Use the ready-to-run image</h2>
+  <p>
+    The public <a href={dockerHub}>Docker Hub image</a> already includes the
+    CLI, native engine, libraries and CA certificates. Its entrypoint is the
+    HTTP client.
+  </p>
+  <CodeBlock
+    code={`docker run --rm ${image} -sS -I https://httpbin.org/status/200`}
+  />
+  <p>
+    Options before the image name belong to Docker. Options after it belong to
+    curlimp. You do not need a separate pull when the image is not yet present
+    locally.
+  </p>
+  <h2>Create an interactive alias</h2>
+  <CodeBlock code={alias} />
+  <CodeBlock
+    code={
+      "curli -sS -I https://httpbin.org/status/200\ncurli -sS -L -o /dev/null -w '%{http_code}\\n' https://httpbin.org/status/301\ncurli --impersonate firefox147 -sS -I https://httpbin.org/status/404"
+    }
+  />
+  <p>
+    Put the alias in <code>~/.zshrc</code> or <code>~/.bashrc</code>, then open
+    a new terminal. Bash login shells need their profile to source{' '}
+    <code>~/.bashrc</code>. For saved scripts, use the full Docker command or a
+    shell function.
+  </p>
+  <p>
+    <code>--compressed</code> is unnecessary with an active profile. The alias's
+    Docker <code>-i</code> forwards stdin; it is not the CLI flag that includes
+    response headers. Avoid allocating a TTY with <code>-t</code> in pipelines.
+  </p>
+  <h2 id="updates-and-fixed-versions">Updates and fixed versions</h2>
+  <p>
+    The examples and alias use <code>latest</code>, which follows the newest
+    stable release after both Linux architectures pass validation. Release
+    candidates never replace it. Versioned tags stay tied to their release.
+  </p>
+  <p>
+    Docker reuses a local image by default. <code>latest</code> does not mean
+    that every invocation downloads an update. Refresh the image used by your
+    command or alias with:
+  </p>
+  <CodeBlock code={`docker pull ${image}`} />
+  <p>
+    To check the registry before every invocation, add Docker's{' '}
+    <code>--pull=always</code> before the image name. Each invocation then needs
+    registry access:
+  </p>
+  <CodeBlock
+    code={`docker run --rm --pull=always ${image} \\\n  -sS -I https://httpbin.org/status/200`}
+  />
+  <p>
+    For scripts or CI, choose a fixed version so that updates are deliberate:
+  </p>
+  <CodeBlock
+    code={`docker run --rm ${versionedImage} \\\n  -sS -o /dev/null -w '%{http_code}\\n' https://httpbin.org/status/200`}
+  />
+  <p>
+    Use an image digest when immutable selection is required. The repository's
+    root Dockerfile remains pinned to a version and multiarch digest. Review the{' '}
+    <a href={`${repository}/releases`}>release notes</a> when upgrading; default
+    profiles and supported options can change between releases.
+  </p>
+  <h2>Mount host files</h2>
+  <CodeBlock
+    code={`docker run --rm -v "$PWD:/work" ${image} \\\n  -sS -D /work/response.headers -o /work/response.body \\\n  https://httpbin.org/status/418`}
+  />
+  <p>
+    A CLI path inside Docker points into the container. Shell redirection, such
+    as <code>&gt; response.body</code>, is handled by your host shell. See{' '}
+    <a href={docHref('files')}>files and pipelines</a> for uploads and stdin.
+  </p>
+  <h2>Pass a default profile through the environment</h2>
+  <CodeBlock
+    code={`docker run --rm -e CURL_IMPERSONATE=firefox147 \\\n  ${image} -sS -I https://httpbin.org/status/200`}
+  />
+  <p>
+    Setting an environment variable in your host shell does not automatically
+    pass it into a container. Use Docker's <code>-e</code>, or choose the
+    profile with a CLI flag.
+  </p>
+  <h2>Know the runtime</h2>
+  <p>
+    The production image packages the glibc runtime into a minimal filesystem.
+    It has no interactive shell or package manager. Docker is running the Linux
+    build even on macOS or Windows. Both Linux amd64 and arm64 are published
+    under the same tag.
+  </p>
+  <p>
+    The root Dockerfile derives from a published runtime image. The separate
+    maintainer Dockerfile compiles the engine and CLI; see{' '}
+    <a href={docHref('building')}>building from source</a>.
+  </p>
+</Doc>

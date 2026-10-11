@@ -1,0 +1,80 @@
+# syntax=docker/dockerfile:1
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS native-builder
+ARG NATIVE_JOBS=4
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl gcc g++ libc6-dev binutils git patch make cmake \
+    ninja-build autoconf automake pkg-config libtool gperf golang-go perl bzip2 xz-utils unzip \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY engine.lock ./
+COPY scripts/fetch-verified.sh scripts/prepare-engine.sh scripts/build-engine.sh scripts/
+COPY vendor/curl-impersonate vendor/curl-impersonate
+RUN --network=none . ./engine.lock && sh scripts/prepare-engine.sh vendor/curl-impersonate /build/upstream "$ENGINE_VENDOR_SHA256"
+RUN sh scripts/build-engine.sh /build /opt/native "$NATIVE_JOBS"
+
+FROM scratch AS engine-artifacts
+COPY --from=native-builder /opt/native/lib/libcurl-impersonate.so* /lib/
+COPY --from=native-builder /opt/native/include/ /include/
+COPY --from=native-builder /opt/native/LICENSE* /licenses/
+COPY --from=native-builder /opt/native/engine-build.txt /opt/native/engine-origin.md /opt/native/engine-inputs.sha256 /
+
+FROM rust:1.90-slim-bookworm@sha256:64232e656c058f4468e8d024e990acff04f0fd5a5c0a88a574dc37773d7325c9 AS builder
+WORKDIR /src
+COPY --from=native-builder /opt/native/ /opt/native/
+ENV CURL_IMPERSONATE_DIR=/opt/native
+COPY Cargo.toml Cargo.lock build.rs ./
+COPY native native
+COPY src src
+COPY completions completions
+RUN cargo build --release --locked
+RUN mkdir -p /out/native/lib /out/licenses \
+    && cp -a /opt/native/lib/libcurl-impersonate.so* /out/native/lib/ \
+    && cp /opt/native/engine-build.txt /opt/native/engine-origin.md /opt/native/engine-inputs.sha256 /out/native/ \
+    && cp /opt/native/LICENSE* /out/licenses/
+
+FROM builder AS test
+RUN apt-get update && apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh \
+    && rm -rf /var/lib/apt/lists/*
+COPY tests tests
+COPY scripts/fetch-verified.sh scripts/prepare-engine.sh scripts/
+RUN --network=none python3 tests/vendor_engine.py && python3 tests/source_download.py
+RUN cargo test --locked --test cli
+RUN --network=none CLI=/src/target/release/curlimp python3 tests/completion.py
+RUN --network=none CLI=/src/target/release/curlimp python3 tests/zsh_completion.py
+RUN REQUIRE_HTTP2=1 CLI=/src/target/release/curlimp python3 tests/compat.py
+RUN CLI=/src/target/release/curlimp python3 tests/exports.py
+
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS runtime-debian
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/native/ /opt/native/
+COPY --from=builder /out/licenses/ /usr/share/licenses/curlimp/native/
+COPY --from=builder /src/target/release/curlimp /usr/local/bin/curlimp
+COPY completions/_curlimp /usr/local/share/zsh/site-functions/_curlimp
+COPY LICENSE NOTICE /usr/share/licenses/curlimp/
+WORKDIR /work
+ENTRYPOINT ["curlimp"]
+CMD ["--help"]
+
+# Package only the dynamic loader, required libraries, CAs, and CLI files.
+FROM runtime-debian AS minimal-rootfs
+COPY scripts/package-minimal.sh /package-minimal.sh
+RUN sh /package-minimal.sh /runtime-rootfs
+
+# Exercise the exact minimal filesystem without putting test tools inside it.
+FROM test AS test-minimal
+COPY --from=minimal-rootfs /runtime-rootfs/ /runtime-rootfs/
+RUN printf '127.0.0.1 localhost\n::1 localhost\n' > /runtime-rootfs/etc/hosts
+RUN TMPDIR=/runtime-rootfs/tmp REQUIRE_HTTP2=1 CLI=/src/tests/chroot_cli.py python3 tests/compat.py
+RUN TMPDIR=/runtime-rootfs/tmp CLI=/src/tests/chroot_cli.py python3 tests/exports.py
+
+# Optional filesystem export for inspecting or distributing runtime artifacts.
+FROM scratch AS runtime-artifacts
+COPY --from=minimal-rootfs /runtime-rootfs/ /rootfs/
+
+# Ready-to-run image produced by maintainers and consumed by the root Dockerfile.
+FROM scratch AS runtime
+COPY --from=minimal-rootfs /runtime-rootfs/ /
+WORKDIR /work
+ENTRYPOINT ["/usr/local/bin/curlimp"]
+CMD ["--help"]

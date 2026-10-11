@@ -1,0 +1,130 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import { cliHelp, version, docHref } from '../../lib/site';
+const options = cliHelp
+  .slice(
+    cliHelp.indexOf('Requests:'),
+    cliHelp.indexOf('\nCurlimp supports a subset'),
+  )
+  .trim();
+---
+
+<Doc
+  title="CLI options reference"
+  slug="cli-reference"
+  section="Usage"
+  description="The supported curlimp options for requests, transport, output and write-out. Check exact flags and limits before migrating curl scripts."
+>
+  <h2>Command shape</h2>
+  <CodeBlock
+    code={'curlimp [options] <URL>\ncurlimp --help\ncurlimp --version'}
+    lang="text"
+    label="Command syntax"
+  />
+  <p>
+    One HTTP(S) URL per invocation. The examples elsewhere use the{' '}
+    <a href={docHref('docker')}>curli Docker alias</a>; its arguments are the
+    same.
+  </p>
+  <h2>Supported options</h2>
+  <p>
+    This reference is read directly from the CLI help source during the site
+    build, for v{version}.
+  </p>
+  <CodeBlock code={options} lang="text" label="CLI help" />
+  <h2>Response export extensions</h2>
+  <p>
+    <code>--txt</code>, <code>--json-output</code>, and <code>--json-file</code>
+    export the selected response. They are project extensions;{' '}
+    <code>--json DATA</code> still sends a request body. See the{' '}
+    <a href={docHref('response-exports')}>export guide</a> for field selection,
+    Docker mounts, encoding, limits, and option conflicts.
+  </p>
+  <h2>Write-out variables</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Variable</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <code>http_code</code>, <code>response_code</code>
+        </td>
+        <td>
+          Last received HTTP response status, or 000 when none was received.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>url_effective</code>
+        </td>
+        <td>Final effective URL after any followed redirects.</td>
+      </tr>
+      <tr>
+        <td>
+          <code>content_type</code>
+        </td>
+        <td>Received response content type, if available.</td>
+      </tr>
+      <tr>
+        <td>
+          <code>num_redirects</code>
+        </td>
+        <td>Number of redirects followed.</td>
+      </tr>
+      <tr>
+        <td>
+          <code>http_version</code>
+        </td>
+        <td>Reported negotiated HTTP version.</td>
+      </tr>
+      <tr>
+        <td>
+          <code>time_total</code>
+        </td>
+        <td>Total transfer time in seconds.</td>
+      </tr>
+      <tr>
+        <td>
+          <code>exitcode</code>
+        </td>
+        <td>Transfer result, including fail-with-body handling.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    <code>%%</code> prints a percent sign. The format supports <code>\n</code>,{' '}
+    <code>\r</code> and <code>\t</code>. <code>-w @file</code> reads a format
+    from a file. Variables not listed here fail explicitly; do not assume the
+    entire curl write-out catalog exists.
+  </p>
+  <h2>Output and errors</h2>
+  <p>
+    Without an export mode, response bodies stream to stdout or <code>-o</code>,
+    without conversion to text. Native diagnostics and CLI errors go to stderr.{' '}
+    <code>-s</code> hides error messages; <code>-S</code> shows them again when
+    used with <code>-s</code>. This CLI has no progress meter.
+  </p>
+  <p>
+    Typical codes include <code>2</code> for invalid options, <code>22</code>{' '}
+    for HTTP failure under fail flags, <code>23</code> for an output write
+    error, and <code>26</code> for a request-input read error. Native transport
+    errors retain their libcurl error codes.
+  </p>
+  <h2>Unsupported is explicit</h2>
+  <p>
+    Multiple URLs, <code>--next</code>, <code>--config</code>,{' '}
+    <code>.curlrc</code>, URL globbing, multipart uploads, retries and parallel
+    transfers are not implemented. <code>-q</code> is accepted, but there is no
+    config-file loading to disable.
+  </p>
+  <p>
+    Read the{' '}
+    <a href={docHref('compatibility')}>complete scope and validation notes</a>{' '}
+    before using the CLI as a curl replacement.
+  </p>
+</Doc>

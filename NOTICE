@@ -1,0 +1,6 @@
+curlimp incorporates third-party engine code and browser profiles.
+
+The native engine's complete MIT notice is preserved in
+vendor/curl-impersonate/LICENSE.
+Distributed images include native dependency copyright and license notices at:
+/usr/share/licenses/curlimp/native/

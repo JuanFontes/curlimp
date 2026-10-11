@@ -1,0 +1,26 @@
+---
+import { Code } from 'astro:components';
+import Icon from './Icon.astro';
+interface Props {
+  code: string;
+  lang?: string;
+  label?: string;
+}
+const { code, lang = 'bash', label = 'Shell' } = Astro.props;
+---
+
+<div class="code-block" data-code-block>
+  <div class="code-toolbar">
+    <span>{label}</span>
+    <button
+      type="button"
+      data-copy
+      hidden
+      aria-label={`Copy ${label.toLowerCase()} code`}
+    >
+      <Icon name="copy" />
+      <span>Copy</span>
+    </button>
+  </div>
+  <Code code={code} lang={lang} theme="github-dark" />
+</div>

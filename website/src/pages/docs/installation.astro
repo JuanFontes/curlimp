@@ -1,0 +1,145 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import { version, release, image, repository, docHref } from '../../lib/site';
+const download = (platform: string) =>
+  `${repository}/releases/download/v${version}/curlimp-${version}-${platform}.tar.gz`;
+---
+
+<Doc
+  title="Installation and downloads"
+  slug="installation"
+  section="Getting started"
+  description="Install curlimp with Docker or download Linux amd64, Linux arm64 and experimental macOS Apple Silicon bundles. Verify checksums before extraction."
+>
+  <h2>Run the published Docker image</h2>
+  <p>
+    No compiler or repository checkout is required. Docker selects the matching
+    Linux amd64 or arm64 image.
+  </p>
+  <CodeBlock code={`docker run --rm ${image} --version`} />
+  <p>
+    This uses <code>latest</code>, which follows the newest stable release.
+    Versioned tags stay tied to their release; choose a version or digest for a
+    fixed dependency. See{' '}
+    <a href={`${docHref('docker')}#updates-and-fixed-versions`}>
+      updates and fixed versions
+    </a>{' '}
+    for examples and Docker's local-cache behavior.
+  </p>
+  <h2>Download a native bundle</h2>
+  <p>
+    Native downloads run without Docker. Download the archive for your host and{' '}
+    <a href={`${repository}/releases/download/v${version}/SHA256SUMS`}>
+      SHA256SUMS
+    </a>{' '}
+    from the <a href={release}>same release</a>.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Platform</th>
+        <th>Download</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Linux x86-64</td>
+        <td>
+          <a href={download('linux-amd64')}>linux-amd64.tar.gz</a>
+        </td>
+        <td>Ubuntu 24.04 CI</td>
+      </tr>
+      <tr>
+        <td>Linux ARM64</td>
+        <td>
+          <a href={download('linux-arm64')}>linux-arm64.tar.gz</a>
+        </td>
+        <td>Ubuntu 24.04 ARM CI</td>
+      </tr>
+      <tr>
+        <td>macOS Apple Silicon</td>
+        <td>
+          <a href={download('macos-arm64')}>macos-arm64.tar.gz</a>
+        </td>
+        <td>Experimental; macOS 15 CI</td>
+      </tr>
+      <tr>
+        <td>macOS Intel / Windows</td>
+        <td>No native download</td>
+        <td>Use a suitable Docker installation</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Linux</h3>
+  <p>
+    In the directory containing the archive and checksum file, set{' '}
+    <code>arch=arm64</code> for ARM Linux or <code>arch=amd64</code> for x86-64:
+  </p>
+  <CodeBlock
+    code={`set -e\narch=amd64\nbundle="curlimp-${version}-linux-$arch"\nawk -v file="$bundle.tar.gz" '$2 == file' SHA256SUMS | sha256sum --check\ntar -xzf "$bundle.tar.gz"\n"./$bundle/curlimp" --version\n"./$bundle/curlimp" -sS -I https://httpbin.org/status/200`}
+  />
+  <p>
+    Keep the entire extracted directory together. The launcher uses its bundled
+    loader, libraries and CA certificates. Copying only the inner executable is
+    not sufficient. The bundle needs <code>/bin/sh</code> and standard utilities
+    including <code>readlink -f</code>; it is not a universal static Linux
+    binary.
+  </p>
+  <h3>macOS Apple Silicon</h3>
+  <CodeBlock
+    code={`set -e\nbundle=curlimp-${version}-macos-arm64\nawk -v file="$bundle.tar.gz" '$2 == file' SHA256SUMS | shasum -a 256 --check\ntar -xzf "$bundle.tar.gz"\n"./$bundle/curlimp" --version\n"./$bundle/curlimp" -sS -I https://httpbin.org/status/200`}
+  />
+  <p>
+    The executable needs the engine in the adjacent <code>lib/</code> directory.
+    Keep them together. No Homebrew installation is required at runtime.
+  </p>
+  <blockquote>
+    <p>
+      The macOS package is signed ad hoc, not with Developer ID, and is not
+      notarized. The deployment target is macOS 13.0, but CI validates macOS 15.
+      Older releases and the downloaded-file Gatekeeper flow are not covered by
+      CI. Follow{' '}
+      <a href="https://support.apple.com/en-us/102445">
+        Apple's per-app approval instructions
+      </a>{' '}
+      if macOS offers Open Anyway after you verify and trust the download.
+    </p>
+  </blockquote>
+  <h2>Understand verification and trust</h2>
+  <p>
+    Checksums detect corruption. The checksum manifest is not cryptographically
+    signed. Linux uses the bundled certificate file by default; macOS has Apple
+    SecTrust support and uses <code>/etc/ssl/cert.pem</code>.{' '}
+    <a href={docHref('networking')}>Custom trust options</a> remain available.
+  </p>
+  <h2>Put the native command on your PATH</h2>
+  <p>
+    Move the complete extracted directory to a permanent location and symlink
+    its launcher into a directory on your <code>PATH</code>. Do not separate the
+    executable from its libraries. The guides' <code>curli</code> alias is
+    optional; replace it with your native command.
+  </p>
+  <h2>Enable Zsh autocomplete</h2>
+  <p>
+    The native command can supply browser profile suggestions for any prefix.
+    Follow the <a href={docHref('completion')}>Zsh setup guide</a> to enable Tab
+    completion and optional menu selection. Docker aliases need a separate host
+    integration and are not supported by this first completion script.
+  </p>
+  <h2>Upgrade</h2>
+  <p>
+    For native downloads, download and verify the new complete bundle. Updating
+    it also refreshes its bundled dependencies and certificates. For a fixed
+    Docker version, change the tag in your command or alias when ready to
+    upgrade. For <code>latest</code>, refresh the locally cached image with:
+  </p>
+  <CodeBlock code={`docker pull ${image}`} />
+  <p>
+    Use Docker's <code>--pull=always</code> when you want each invocation to
+    check the registry. See the{' '}
+    <a href={`${docHref('docker')}#updates-and-fixed-versions`}>Docker guide</a>{' '}
+    for complete commands.
+  </p>
+</Doc>

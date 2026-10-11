@@ -1,0 +1,142 @@
+---
+import Doc from '../../layouts/Doc.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import { profiles, version, repository, docHref } from '../../lib/site';
+const families = [
+  { name: 'Chrome', match: /^chrome/, platform: 'Desktop and Android' },
+  { name: 'Firefox', match: /^firefox/, platform: 'Desktop' },
+  { name: 'Safari', match: /^safari/, platform: 'Desktop and iOS' },
+  { name: 'Edge', match: /^edge/, platform: 'Desktop' },
+  { name: 'Tor Browser', match: /^tor/, platform: 'Desktop; profile only' },
+  { name: 'OkHttp', match: /^okhttp/, platform: 'Android HTTP client' },
+];
+---
+
+<Doc
+  title="Browser and client profiles"
+  slug="profiles"
+  section="Usage"
+  description="Explore the curlimp profile catalog for Chrome, Firefox, Safari, Edge, Tor and OkHttp. Learn profile selection, environment priority and header overrides."
+>
+  <h2>Choose a profile</h2>
+  <p>
+    Chrome 150 is the default. Put an exact profile name before the URL, or use
+    <code>--impersonate</code> to select a different compiled profile.
+  </p>
+  <CodeBlock
+    code={
+      'curlimp firefox147 -sS -I https://httpbin.org/status/200\ncurlimp -sS safari2601 -I https://httpbin.org/status/301\ncurlimp --impersonate chrome131_android -sS -I https://httpbin.org/status/502'
+    }
+  />
+  <p>
+    Flags may appear on either side of the positional profile. Names must match
+    exactly; <a href={docHref('completion')}>Zsh autocomplete</a> expands any
+    matching prefix with Tab. Use <code>--url chrome150</code> or
+    <code>-- chrome150</code> if that name is a hostname instead of a profile.
+  </p>
+  <p>
+    The profile platform describes the client being impersonated, independently
+    of your host OS. You can select an Android profile from a Linux or macOS
+    binary.
+  </p>
+  <h2>
+    Included profiles <span class="profile-count">{profiles.length}</span>
+  </h2>
+  <p>
+    This table is generated from the CLI's{' '}
+    <a href={`${repository}/blob/main/src/profiles.txt`}>profile catalog</a> for
+    v{version}. Names alone do not establish real-browser fingerprint
+    equivalence.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Family</th>
+        <th>Target</th>
+        <th>Profile IDs</th>
+      </tr>
+    </thead>
+    <tbody>
+      {families.map((family) => (
+        <tr>
+          <td>{family.name}</td>
+          <td>{family.platform}</td>
+          <td>
+            {profiles
+              .filter((p) => family.match.test(p))
+              .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+              .map((p) => (
+                <>
+                  <code data-profile={p}>{p}</code>{' '}
+                </>
+              ))}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p>
+    The Tor profile does not connect to the Tor network or provide anonymity.
+    Proxy routing is a separate setting.
+  </p>
+  <blockquote>
+    <p>
+      <code>okhttp4_android</code> is an HTTP client preset whose bundled
+      headers include a desktop Safari User-Agent. Inspect or override its
+      headers before use; catalog availability does not establish OkHttp
+      fingerprint fidelity.
+    </p>
+  </blockquote>
+  <h2>Check the installed engine</h2>
+  <CodeBlock code={'curli --list-profiles\ncurli --version'} />
+  <p>
+    <code>--list-profiles</code> validates the catalog against the loaded
+    engine, without making network requests. A profile update requires a
+    matching engine build; editing a name in the catalog does not create new
+    native settings.
+  </p>
+  <h2>Selection order</h2>
+  <ol>
+    <li>
+      The last explicit selection: a positional profile,
+      <code>--impersonate</code>, or <code>--no-impersonate</code>.
+    </li>
+    <li>
+      The <code>CURL_IMPERSONATE</code> environment variable.
+    </li>
+    <li>
+      The release default, <code>chrome150</code>.
+    </li>
+  </ol>
+  <p>
+    The default is pinned to the release. It does not silently follow a newly
+    released browser.
+  </p>
+  <h2>Control browser headers</h2>
+  <CodeBlock
+    code={
+      '# Apply profile transport settings without its default headers\ncurli --impersonate chrome150:no -sS -I https://httpbin.org/status/200'
+    }
+  />
+  <p>
+    The <code>:yes</code>/<code>:no</code> suffix controls profile headers.
+    Explicit selection enables headers if the suffix is omitted.{' '}
+    <code>CURL_IMPERSONATE_HEADERS=no</code> applies to environment/default
+    selection. Suppressing profile headers does not disable automatic
+    decompression.
+  </p>
+  <h2>Disable impersonation</h2>
+  <CodeBlock
+    code={'curli --no-impersonate -sS -I https://httpbin.org/status/200'}
+  />
+  <p>
+    This disables profile application, including environment defaults. It still
+    uses the packaged modified native engine; it is not a switch to the system
+    curl executable or a promise of stock curl fingerprint identity. Response
+    decoding becomes opt-in with <code>--compressed</code>.
+  </p>
+  <p>
+    Read <a href={docHref('architecture')}>how profiles reach the engine</a> and
+    the <a href={docHref('compatibility')}>validation boundaries</a>.
+  </p>
+</Doc>

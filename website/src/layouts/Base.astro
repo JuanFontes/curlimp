@@ -1,0 +1,91 @@
+---
+import '@fontsource-variable/inter/wght.css';
+import '@fontsource-variable/jetbrains-mono/wght.css';
+import '../styles/global.css';
+import { href, absolute, origin } from '../lib/site';
+interface Props {
+  title: string;
+  description: string;
+  noindex?: boolean;
+  structured?: object[];
+}
+const { title, description, noindex = false, structured = [] } = Astro.props;
+const canonical = new URL(
+  Astro.url.pathname.replace(/\/404\/$/, '/404.html'),
+  origin,
+).href;
+const titleText = `${title} · Curlimp`;
+const graph = [
+  {
+    '@type': 'WebSite',
+    '@id': `${absolute()}#website`,
+    name: 'Curlimp',
+    url: absolute(),
+    inLanguage: 'en',
+  },
+  {
+    '@type': 'WebPage',
+    '@id': `${canonical}#webpage`,
+    url: canonical,
+    name: titleText,
+    description,
+    inLanguage: 'en',
+    isPartOf: { '@id': `${absolute()}#website` },
+  },
+  ...structured,
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0f0e" />
+    <link rel="icon" type="image/svg+xml" href={`${href()}favicon.svg`} />
+    <title>{titleText}</title>
+    <meta name="description" content={description} />
+    <meta
+      name="robots"
+      content={
+        noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large'
+      }
+    />
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" type="application/xml" href={`${href()}sitemap.xml`} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Curlimp" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content={titleText} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={`${absolute()}social.png`} />
+    <meta
+      property="og:image:alt"
+      content="curlimp — Browser profiles. Your terminal. One command."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={titleText} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={`${absolute()}social.png`} />
+    {!noindex && (
+      <script
+        type="application/ld+json"
+        set:html={JSON.stringify({
+          '@context': 'https://schema.org',
+          '@graph': graph,
+        }).replace(/</g, '\\u003c')}
+      />
+    )}
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">
+      Skip to content
+    </a>
+    <slot />
+    <script>
+      import '../scripts/interactions';
+    </script>
+  </body>
+</html>

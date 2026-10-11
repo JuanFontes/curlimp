@@ -1,0 +1,24 @@
+---
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+interface Props {
+  name: string;
+}
+const { name } = Astro.props;
+const allowed = [
+  'arrow-right',
+  'arrow-left',
+  'external-link',
+  'copy',
+  'menu-2',
+  'x',
+  'check',
+];
+if (!allowed.includes(name)) throw new Error(`Unknown icon: ${name}`);
+const svg = readFileSync(
+  resolve(`node_modules/@tabler/icons/icons/outline/${name}.svg`),
+  'utf8',
+);
+---
+
+<span class="icon" aria-hidden="true" set:html={svg} />

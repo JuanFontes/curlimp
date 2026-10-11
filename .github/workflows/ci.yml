@@ -1,0 +1,154 @@
+name: Build and package runtime
+on:
+  push:
+    branches:
+      - '**'
+    paths-ignore:
+      - 'website/**'
+      - 'README.md'
+      - 'docker/README.md'
+      - 'CONTRIBUTING.md'
+      - '.gitignore'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    paths-ignore:
+      - 'website/**'
+      - 'README.md'
+      - 'docker/README.md'
+      - 'CONTRIBUTING.md'
+      - '.gitignore'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  docker:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    # Use the daemon builder so the distribution build can resolve the local runtime image.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read release version from Cargo.toml
+        run: |
+          version=$(python3 scripts/release_version.py)
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Test release packager
+        run: python3 tests/release_package.py
+      - name: Test source engine and runtime filesystem
+        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target test-minimal .
+      - name: Export runtime artifact
+        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target runtime-artifacts --output type=local,dest=dist/runtime/${{ matrix.arch }} .
+      - name: Build ready-to-run runtime image
+        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target runtime -t curlimp:runtime .
+      - name: Derive distribution image without source compilation
+        run: docker build --builder default --platform ${{ matrix.platform }} --build-arg RUNTIME_IMAGE=curlimp:runtime --network none -t curlimp:local .
+      - name: Inspect packaged engine and profiles without network
+        run: |
+          docker run --rm --network none curlimp:local --version
+          docker run --rm --network none curlimp:local --list-profiles
+          cat dist/runtime/${{ matrix.arch }}/rootfs/opt/native/engine-build.txt
+      - name: Package Linux CLI and libraries
+        run: |
+          python3 scripts/package-release.py \
+            --rootfs dist/runtime/${{ matrix.arch }}/rootfs --arch ${{ matrix.arch }} \
+            --revision "$GITHUB_SHA" --output dist/release
+      - name: Install native test fixtures
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh
+      - name: Test the extracted bundle directly on the native Linux runner
+        run: |
+          bundle="curlimp-${RELEASE_VERSION}-linux-${{ matrix.arch }}"
+          install_dir="$RUNNER_TEMP/extracted bundle"
+          mkdir -p "$install_dir"
+          tar -xzf "dist/release/$bundle.tar.gz" -C "$install_dir"
+          export CLI="$install_dir/$bundle/curlimp"
+          version_output=$("$CLI" --version)
+          printf '%s\n' "$version_output"
+          test "$(printf '%s\n' "$version_output" | head -n 1)" = "curlimp $RELEASE_VERSION"
+          REQUIRE_HTTP2=1 python3 tests/compat.py
+          python3 tests/release_tls.py
+          python3 tests/exports.py
+          python3 tests/completion.py
+          python3 tests/zsh_completion.py
+          "$CLI" -sS --fail \
+            --connect-timeout 10 --max-time 30 -o /dev/null https://httpbin.org/status/200
+      - name: Upload tested release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: dist/release/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      RUSTUP_TOOLCHAIN: '1.90.0'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read release version from Cargo.toml
+        run: |
+          version=$(python3 scripts/release_version.py)
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Prepare Apple Silicon build and test tools
+        run: |
+          test "$(uname -m)" = arm64
+          brew install cmake ninja go nghttp2 openssl@3
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+          echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix nghttp2)/bin" >> "$GITHUB_PATH"
+      - name: Test macOS packager with real Mach-O fixtures
+        run: python3 tests/macos_package.py
+      - name: Build verified native engine and CLI
+        run: sh scripts/build-macos.sh "$RUNNER_TEMP/macos-build" 3
+      - name: Test CLI parsing
+        env:
+          CURL_IMPERSONATE_DIR: ${{ runner.temp }}/macos-build/native
+          CARGO_TARGET_DIR: ${{ runner.temp }}/macos-build/target
+        run: cargo test --release --locked --test cli
+      - name: Package macOS Apple Silicon download
+        run: |
+          python3 scripts/package-macos.py \
+            --binary "$RUNNER_TEMP/macos-build/target/release/curlimp" \
+            --native-prefix "$RUNNER_TEMP/macos-build/native" \
+            --revision "$GITHUB_SHA" --output dist/release
+      - name: Test the extracted macOS bundle
+        run: |
+          bundle="curlimp-${RELEASE_VERSION}-macos-arm64"
+          install_dir="$RUNNER_TEMP/extracted bundle"
+          mkdir -p "$install_dir"
+          tar -xzf "dist/release/$bundle.tar.gz" -C "$install_dir"
+          export CLI="$install_dir/$bundle/curlimp"
+          version_output=$("$CLI" --version)
+          printf '%s\n' "$version_output"
+          test "$(printf '%s\n' "$version_output" | head -n 1)" = "curlimp $RELEASE_VERSION"
+          codesign --verify --strict "$CLI"
+          REQUIRE_HTTP2=1 python3 tests/compat.py
+          python3 tests/release_tls.py
+          python3 tests/exports.py
+          python3 tests/completion.py
+          python3 tests/zsh_completion.py
+          "$CLI" -sS --fail \
+            --connect-timeout 10 --max-time 30 -o /dev/null https://httpbin.org/status/200
+      - name: Upload tested macOS bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-arm64
+          path: dist/release/*.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

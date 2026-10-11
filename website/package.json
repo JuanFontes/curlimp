@@ -1,0 +1,27 @@
+{
+  "name": "curlimp-website",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "python3 scripts/check-site.py",
+    "format": "prettier --write src astro.config.mjs package.json .prettierrc.json",
+    "format:check": "prettier --check src astro.config.mjs package.json .prettierrc.json"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@tabler/icons": "3.49.0",
+    "astro": "7.3.8"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10",
+    "prettier-plugin-astro": "1.1.1"
+  }
+}

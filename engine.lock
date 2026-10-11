@@ -1,0 +1,10 @@
+# Vendored engine baseline; informational revision, no remote engine fetch.
+ENGINE_VERSION=2.2.3
+ENGINE_REVISION=6e8f87760a4dd96771e96fc9d55440dcd8845243
+# SHA-256 of vendor/curl-impersonate/SHA256SUMS.
+ENGINE_VENDOR_SHA256=85eb61c1b57002ec181f55d6a7dadcb6d4c095cc8af9102b29c567565d7aa224
+# This release's IDN preparation script does not verify its download itself.
+LIBIDN2_VERSION=2.3.7
+LIBIDN2_SOURCE_URL=https://ftp.gnu.org/gnu/libidn/libidn2-2.3.7.tar.gz
+LIBIDN2_SOURCE_MIRROR=https://mirrors.ocf.berkeley.edu/gnu/libidn/libidn2-2.3.7.tar.gz
+LIBIDN2_SOURCE_SHA256=4c21a791b610b9519b9d0e12b8097bf2f359b12f8dd92647611a929e6bfd7d64
