@@ -1070,13 +1070,3 @@ a:hover {
     break-inside: avoid;
   }
 }
-:root .release-preview {
-  margin: 20px 0;
-  padding: 0.65rem 1.5rem;
-  text-align: center;
-  font-size: 0.8rem;
-  color: #91e8bd;
-  background: #13251e;
-  border: 1px solid #2b473a;
-  border-radius: 5px;
-}

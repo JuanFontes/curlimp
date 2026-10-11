@@ -52,7 +52,7 @@ The native engine was incorporated from existing open-source work. Its notices a
 ## Distribution
 
 - The maintainer Dockerfile compiles the native engine and Rust CLI, then assembles a minimal runtime with libraries and CA files.
-- The root Dockerfile derives from a ready-made runtime selected by `RUNTIME_IMAGE`. Local development uses `curlimp:local`; published releases use a pinned image digest.
+- The root Dockerfile derives from a ready-made runtime selected by `RUNTIME_IMAGE`. It defaults to the published release; local builds can override it with `curlimp:local`.
 - Linux downloads include a launcher, dynamic loader, libraries and certificates.
 - Apple Silicon downloads include the native executable and its adjacent engine library.
 

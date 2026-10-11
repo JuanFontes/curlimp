@@ -40,7 +40,7 @@ The original visual system uses Inter and JetBrains Mono (SIL Open Font License)
 
 ## Publish
 
-The Pages workflow validates builds on pushes and pull requests. Deployment stays disabled until the repository Actions variable `PAGES_ENABLED` is set to `true`. When ready to publish, enable **GitHub Actions** as the repository's Pages source and set that variable; successful builds on `main` can then deploy. Keep deployment disabled during the private development preview. `astro.config.mjs` fixes the production origin and `/curlimp` base. Change both deliberately when changing the domain, then check canonical URLs, internal links, share metadata and sitemap.
+The Pages workflow validates builds on pushes and pull requests. Deployment stays disabled until the repository Actions variable `PAGES_ENABLED` is set to `true`. Use **GitHub Actions** as the repository's Pages source and set that variable; successful builds on `main` then deploy. Forks can leave the variable unset to build without deploying. `astro.config.mjs` fixes the production origin and `/curlimp` base. Change both deliberately when changing the domain, then check canonical URLs, internal links, share metadata and sitemap.
 
 The runtime workflow ignores website and public documentation edits. It still runs for engine, CLI, packaging and runtime-workflow changes.
 

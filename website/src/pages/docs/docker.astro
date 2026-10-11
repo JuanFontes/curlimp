@@ -68,10 +68,10 @@ import {
   />
   <p>
     Use an image digest when immutable selection is required. The repository's
-    root Dockerfile uses <code>curlimp:local</code> for development; releases
-    pin a published multiarch digest. Review the{' '}
-    <a href={`${repository}/releases`}>release notes</a> when upgrading; default
-    profiles and supported options can change between releases.
+    root Dockerfile derives from the published release runtime. Override
+    <code>RUNTIME_IMAGE</code> to use another version or a local build. Review
+    the <a href={`${repository}/releases`}>release notes</a> when upgrading;
+    default profiles and supported options can change between releases.
   </p>
   <h2>Mount host files</h2>
   <CodeBlock

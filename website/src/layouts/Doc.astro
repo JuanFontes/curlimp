@@ -1,7 +1,6 @@
 ---
 import Base from './Base.astro';
 import Header from '../components/Header.astro';
-import ReleasePreview from '../components/ReleasePreview.astro';
 import Icon from '../components/Icon.astro';
 import {
   groups,
@@ -73,7 +72,6 @@ const structured = [
       </div>
     </aside>
     <main id="main-content" class="doc-main">
-      <ReleasePreview />
       <div class="breadcrumbs">
         <a href={docHref()}>Documentation</a>
         {slug && (

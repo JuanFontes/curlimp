@@ -1,7 +1,5 @@
 # 🦎 Curlimp
 
-> **Publication draft:** Curlimp 0.3.0 is currently a local development preview. The image and documentation site below are not published yet. Build this checkout with `docker build -f docker/Dockerfile.build --target runtime -t curlimp:local .` and use `curlimp:local` to test locally.
-
 **Browser impersonation from your terminal. Ready to run with Docker.**
 
 ![Release 0.3.0](https://img.shields.io/badge/Release-0.3.0-0F766E?style=flat-square)
@@ -170,7 +168,7 @@ The command validates the catalog against the installed engine. See the [catalog
 
 ### Profile selection and environment variables
 
-Priority: **last `--impersonate` / `--no-impersonate` flag → `CURL_IMPERSONATE` → `chrome150`**. The default is fixed per release and shown by `--version`.
+Priority: **last positional profile / `--impersonate` / `--no-impersonate` selection → `CURL_IMPERSONATE` → `chrome150`**. The default is fixed per release and shown by `--version`.
 
 ```sh
 # Supply an environment default to the container.

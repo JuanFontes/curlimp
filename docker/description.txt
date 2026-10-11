@@ -1,0 +1,1 @@
+Browser impersonation with a Rust CLI. curl-style commands, Zsh autocomplete, and TXT/JSON exports.

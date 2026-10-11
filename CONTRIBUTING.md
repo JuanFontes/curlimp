@@ -42,11 +42,11 @@ docker build -f docker/Dockerfile.build --platform linux/arm64 \
   --target runtime-debian -t curlimp:debug .
 ```
 
-`NATIVE_JOBS` defaults to 4; smaller builders can use `--build-arg NATIVE_JOBS=2`. CLI-only changes reuse native compilation layers when cached. Dockerfile-specific ignore rules include only source-build inputs and exclude generated or local files; distribution builds need no local files. Update `docker/Dockerfile.build.dockerignore` when adding a new build input outside the listed paths. The GitHub Actions workflow is configured to test each architecture, export runtime files into the runner filesystem, and build both runtime and distribution images using the same daemon builder. It also packages Linux downloads, runs the extracted launcher directly on each native runner, and uploads the tested archives as workflow artifacts. It does not publish releases or images automatically.
+`NATIVE_JOBS` defaults to 4; smaller builders can use `--build-arg NATIVE_JOBS=2`. CLI-only changes reuse native compilation layers when cached. Dockerfile-specific ignore rules include only source-build inputs and exclude generated or local files; distribution builds need no local files. Update `docker/Dockerfile.build.dockerignore` when adding a new build input outside the listed paths. The GitHub Actions workflow is configured to test each architecture, export runtime files into the runner filesystem, and build both runtime and distribution images using the same daemon builder. It also packages Linux downloads, runs the extracted launcher directly on each native runner, and uploads the tested archives as workflow artifacts. It also retains the tested Docker images for seven days. It does not publish automatically; the separate release workflow consumes a successful run.
 
 ### Derive your own image from a ready-made runtime
 
-For local development, the root `Dockerfile` defaults to `curlimp:local`. Build that runtime with the maintainer Dockerfile first. At publication, replace the default with the verified published **multiarch digest**. Build a derived image with:
+The root `Dockerfile` defaults to the published runtime. Build a local runtime with the maintainer Dockerfile and override `RUNTIME_IMAGE` to test your changes:
 
 ```sh
 docker build --build-arg RUNTIME_IMAGE=curlimp:local -t curlimp:distribution-local .
@@ -134,14 +134,16 @@ The packager requires thin ARM64 Mach-O inputs and rejects non-system dependenci
 
 ### Publish a release
 
-1. Set `package.version` in `Cargo.toml` and update `Cargo.lock`. CI and both packagers read that version through `scripts/release_version.py`; no separate CI version constant is needed. Update the README, changelog, and `docker/README.md` for the intended release. Select the Docker tag/digest deliberately. Commit the source and run CI on that exact revision.
-2. Require successful Linux amd64, Linux arm64, and macOS Apple Silicon jobs. Linux jobs build and test the minimal runtime and packager; macOS builds the engine and CLI and tests real Mach-O packaging. All three run local response-export tests and extract the archive into a path with spaces and run HTTP/TLS/HTTP2 compatibility and certificate tests directly on the native runner. Each also runs a bounded public HTTPS smoke check; public-service failures can require a rerun.
-3. Download the `linux-amd64`, `linux-arm64`, and `macos-arm64` artifacts from that run. Check each archive's `release.json` against the tested revision, platform, and release version. Preserve the tested `.tar.gz` bytes.
-4. Generate `SHA256SUMS` over all three archives, tag the exact tested commit, and upload the archives and checksum file to a draft release. Download them again and verify the checksums before publishing. Mark release candidates as pre-releases.
-5. Include installation instructions, validation scope, macOS signing/notarization status, known limits, and the Docker image tag/digest in the release notes. For each stable release, publish its versioned Docker tag and point `latest` to the same validated multiarch index. Verify matching digests and both `linux/amd64` and `linux/arm64` before announcing the release. Never promote an RC or other pre-release to `latest`. Keep versioned tags and existing assets unchanged. Public usage examples use `latest`; fixed-version examples, native downloads, release metadata and the root Dockerfile's version/digest pin still need updating for each release.
-6. Publish `docker/README.md` as the Docker Hub overview and verify it against the repository copy. Verify anonymous downloads and image pulls for public releases.
+Configure repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` using a Docker Hub personal access token with push and repository-metadata access. Keep credentials out of files and logs. The workflow publishes only from `main` and uses the repository's `GITHUB_TOKEN` for release assets.
 
-Packaging changes alone do not require rebuilding an unchanged Docker runtime. If a new release tag should refer to that runtime, copy its existing multiarch index with `docker buildx imagetools create --tag IMAGE:NEW_TAG IMAGE@sha256:DIGEST`, then verify the resulting digest and both architectures. State that promotion explicitly in the notes; do not claim that the image was compiled from the new release commit. Native downloads are built by CI from the tagged source. Release publication does not change repository visibility.
+1. Update `Cargo.toml`, `Cargo.lock`, the changelog, versioned examples and `.github/release-notes/VERSION.md`. Update `docker/README.md` and the short `docker/description.txt` (maximum 100 characters). Commit and push the release source to `main`.
+2. Wait for **Build and package runtime** to pass on that exact revision. All three platforms must pass. CI uploads three native archives plus the two tested Docker image archives; release publication must occur before the image artifacts expire after seven days.
+3. Run **Publish tested release** from Actions on `main`, supplying that successful CI run ID. The workflow rejects a different revision, incomplete build, existing release/tag/image version, or mismatched bundle/image metadata. It preserves the tested archive bytes.
+4. The workflow pushes architecture staging tags named `build-COMMIT-ARCH`, creates the versioned multiarch image, creates a draft GitHub release, downloads its assets again and checks `SHA256SUMS`. It publishes the Docker Hub overview and description, then publishes the GitHub release. Stable versions also promote `latest` and verify that it has the same digest. Pre-release versions never replace `latest`.
+5. Check published downloads, both image platforms and Docker Hub text. Pin the root Dockerfile to the reported multiarch digest in a follow-up commit. This distribution-only change does not alter or rebuild the released engine/CLI. Keep the versioned image and release assets unchanged.
+6. Verify anonymous image pulls, asset downloads and the documentation website before announcing a public release. Repository visibility and Pages activation are managed separately from the release workflow.
+
+The release workflow intentionally stops if the version already exists. If publication is interrupted, inspect the registry, draft release and logs before recovering; do not delete or overwrite published versioned assets just to rerun it. Use a new version for changed binaries. Refresh only Docker Hub text with `python3 scripts/update-dockerhub.py` and the same two environment variables.
 
 ### Engine inputs and updates
 

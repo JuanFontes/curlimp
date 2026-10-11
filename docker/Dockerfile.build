@@ -74,6 +74,15 @@ COPY --from=minimal-rootfs /runtime-rootfs/ /rootfs/
 
 # Ready-to-run image produced by maintainers and consumed by the root Dockerfile.
 FROM scratch AS runtime
+ARG SOURCE_REVISION=unknown
+ARG RELEASE_VERSION=dev
+LABEL org.opencontainers.image.title="Curlimp" \
+      org.opencontainers.image.description="Browser impersonation with a Rust CLI and curl-style commands" \
+      org.opencontainers.image.source="https://github.com/JuanFontes/curlimp" \
+      org.opencontainers.image.url="https://juanfontes.github.io/curlimp/" \
+      org.opencontainers.image.revision=$SOURCE_REVISION \
+      org.opencontainers.image.version=$RELEASE_VERSION \
+      org.opencontainers.image.licenses="MIT"
 COPY --from=minimal-rootfs /runtime-rootfs/ /
 WORKDIR /work
 ENTRYPOINT ["/usr/local/bin/curlimp"]

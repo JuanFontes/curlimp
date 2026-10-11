@@ -1,0 +1,143 @@
+name: Publish tested release
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful runtime CI run for the current main revision
+        required: true
+        type: string
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+      IMAGE: juanfontes/curlimp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate CI source and unused release version
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, sys, urllib.error, urllib.request
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          from release_artifacts import validate_run
+          repo = os.environ['GITHUB_REPOSITORY']
+          run_id = os.environ['BUILD_RUN_ID']
+          assert re.fullmatch(r'[0-9]+', run_id), 'Invalid CI run ID'
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/{path}']))
+          run = api(f'actions/runs/{run_id}')
+          main_revision = api('git/ref/heads/main')['object']['sha']
+          validate_run(run, os.environ['GITHUB_SHA'], main_revision, repo)
+          version = subprocess.check_output(['python3', 'scripts/release_version.py'], text=True).strip()
+          assert Path(f'.github/release-notes/{version}.md').read_text().strip(), 'Missing release notes'
+          tag = 'v' + version
+          refs = api('git/matching-refs/tags/' + tag)
+          assert not any(ref['ref'] == 'refs/tags/' + tag for ref in refs), 'Release tag already exists'
+          pages = json.loads(subprocess.check_output(['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases?per_page=100']))
+          assert not any(release['tag_name'] == tag for page in pages for release in page), 'Release already exists'
+          url = f'https://hub.docker.com/v2/repositories/juanfontes/curlimp/tags/{version}/'
+          try:
+              urllib.request.urlopen(url, timeout=30).close()
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+          else:
+              raise RuntimeError('Docker version already exists')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'RELEASE_VERSION={version}\n')
+          PY
+      - name: Download and verify tested artifacts
+        run: |
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir artifacts
+          python3 scripts/release_artifacts.py --artifacts artifacts --revision "$GITHUB_SHA" --output dist/release
+      - name: Check Docker Hub content and metadata access
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: python3 scripts/update-dockerhub.py --check
+      - name: Sign in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+      - name: Publish the tested platform images
+        run: |
+          for arch in amd64 arm64; do
+            docker load --input "artifacts/image-linux-$arch/image-linux-$arch.tar.gz"
+            docker image inspect curlimp:runtime > image.json
+            python3 - "$arch" <<'PY'
+          import json, os, sys
+          image = json.load(open('image.json'))[0]
+          assert image['Os'] == 'linux' and image['Architecture'] == sys.argv[1], 'Wrong image platform'
+          labels = image['Config']['Labels']
+          assert labels['org.opencontainers.image.revision'] == os.environ['GITHUB_SHA'], 'Wrong image revision'
+          assert labels['org.opencontainers.image.version'] == os.environ['RELEASE_VERSION'], 'Wrong image version'
+          assert image['Config']['Entrypoint'] == ['/usr/local/bin/curlimp'], 'Wrong command'
+          PY
+            candidate="$IMAGE:build-$GITHUB_SHA-$arch"
+            docker tag curlimp:runtime "$candidate"
+            docker push "$candidate"
+          done
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+          docker buildx imagetools create --tag "$IMAGE:$RELEASE_VERSION" \
+            "$IMAGE:build-$GITHUB_SHA-amd64" "$IMAGE:build-$GITHUB_SHA-arm64"
+          docker buildx imagetools inspect "$IMAGE:$RELEASE_VERSION" --format '{{json .Manifest}}' > image-index.json
+          python3 - <<'PY'
+          import json, os
+          index = json.load(open('image-index.json'))
+          assert {(m['platform']['os'], m['platform']['architecture']) for m in index['manifests']} == {('linux', 'amd64'), ('linux', 'arm64')}
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('IMAGE_DIGEST=' + index['digest'] + '\n')
+          PY
+      - name: Create and verify the draft release
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          version = os.environ['RELEASE_VERSION']
+          source = Path(f'.github/release-notes/{version}.md').read_text()
+          source += f"\nDocker image: `{os.environ['IMAGE']}:{version}@{os.environ['IMAGE_DIGEST']}`\n"
+          source += f"\nBuilt and tested from `{os.environ['GITHUB_SHA']}` in [CI run {os.environ['BUILD_RUN_ID']}](https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['BUILD_RUN_ID']}).\n"
+          Path('release-notes.md').write_text(source)
+          PY
+          gh release create "v$RELEASE_VERSION" --target "$GITHUB_SHA" --draft \
+            --title "Curlimp $RELEASE_VERSION" --notes-file release-notes.md dist/release/*
+          gh release download "v$RELEASE_VERSION" --dir downloaded
+          (cd downloaded && sha256sum --check SHA256SUMS)
+          cmp dist/release/SHA256SUMS downloaded/SHA256SUMS
+      - name: Update Docker Hub documentation
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: python3 scripts/update-dockerhub.py
+      - name: Publish release and promote stable image
+        run: |
+          case "$RELEASE_VERSION" in
+            *-*) gh release edit "v$RELEASE_VERSION" --draft=false --prerelease --latest=false ;;
+            *)
+              docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$IMAGE_DIGEST"
+              latest_digest=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{.Manifest.Digest}}')
+              test "$latest_digest" = "$IMAGE_DIGEST"
+              gh release edit "v$RELEASE_VERSION" --draft=false --latest
+              ;;
+          esac
+          printf 'Published Curlimp %s\nImage digest: %s\n' "$RELEASE_VERSION" "$IMAGE_DIGEST"
+      - name: Sign out of Docker Hub
+        if: always()
+        run: docker logout

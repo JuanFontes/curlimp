@@ -37,15 +37,6 @@
 
 <a id="use-the-published-docker-image"></a>
 
-> **Local development preview:** Curlimp 0.3.0 is in development. The release, documentation site and Docker Hub image are not published yet. To test this checkout now, build and run the local image:
-
-```sh
-docker build -f docker/Dockerfile.build --target runtime -t curlimp:local .
-docker run --rm curlimp:local firefox147 -sS -I https://httpbin.org/status/200
-```
-
-The published-image and download examples below describe the upcoming release.
-
 ## 🚀 Quick start
 
 With Docker installed, make your first request:

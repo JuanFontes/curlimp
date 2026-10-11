@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 — Unreleased
+## 0.3.0 — 2026-10-11
 
 ### Features
 
@@ -23,5 +23,3 @@
 One URL per invocation and a documented subset of curl flags. The CLI does not render pages or execute JavaScript. HTTP/3 behavior and equivalence to real-browser fingerprints remain unverified.
 
 The macOS package is signed ad hoc and is not notarized. Windows and Intel Mac native packages are not available. See the [compatibility guide](README.md#current-compatibility) and [platform table](README.md#platform-support).
-
-Release artifacts and the documentation site are not published yet.

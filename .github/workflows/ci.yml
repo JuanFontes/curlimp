@@ -37,19 +37,21 @@ jobs:
     timeout-minutes: 60
     # Use the daemon builder so the distribution build can resolve the local runtime image.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Read release version from Cargo.toml
         run: |
           version=$(python3 scripts/release_version.py)
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
       - name: Test release packager
-        run: python3 tests/release_package.py
+        run: |
+          python3 tests/release_package.py
+          python3 tests/release_artifacts.py
       - name: Test source engine and runtime filesystem
         run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target test-minimal .
       - name: Export runtime artifact
         run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target runtime-artifacts --output type=local,dest=dist/runtime/${{ matrix.arch }} .
       - name: Build ready-to-run runtime image
-        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target runtime -t curlimp:runtime .
+        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --build-arg SOURCE_REVISION="$GITHUB_SHA" --build-arg RELEASE_VERSION="$RELEASE_VERSION" --target runtime -t curlimp:runtime .
       - name: Derive distribution image without source compilation
         run: docker build --builder default --platform ${{ matrix.platform }} --build-arg RUNTIME_IMAGE=curlimp:runtime --network none -t curlimp:local .
       - name: Inspect packaged engine and profiles without network
@@ -91,6 +93,16 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+      - name: Save the tested runtime image
+        run: docker save curlimp:runtime | gzip > dist/image-linux-${{ matrix.arch }}.tar.gz
+      - name: Upload tested runtime image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: image-linux-${{ matrix.arch }}
+          path: dist/image-linux-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
   macos:
     runs-on: macos-15
     timeout-minutes: 60
@@ -99,7 +111,7 @@ jobs:
       RUSTUP_TOOLCHAIN: '1.90.0'
       HOMEBREW_NO_AUTO_UPDATE: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Read release version from Cargo.toml
         run: |
           version=$(python3 scripts/release_version.py)

@@ -9,14 +9,14 @@ lead: 'Pick the build path that matches what you are changing.'
 
 ## Build a derived distribution image
 
-After building the local runtime below:
+The root Dockerfile starts from the published runtime:
 
 ```sh
-docker build --build-arg RUNTIME_IMAGE=curlimp:local -t curlimp:distribution-local .
+docker build -t curlimp:distribution-local .
 docker run --rm curlimp:distribution-local --version
 ```
 
-The root Dockerfile starts from the runtime selected by `RUNTIME_IMAGE`. For local development it defaults to `curlimp:local`; the release will pin a published image digest. It does not compile your local CLI changes.
+The root Dockerfile starts from the runtime selected by `RUNTIME_IMAGE`. It defaults to the published release. To use the locally compiled runtime below, add `--build-arg RUNTIME_IMAGE=curlimp:local`. It does not compile your local CLI changes.
 
 ## Compile the engine and CLI
 
