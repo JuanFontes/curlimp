@@ -1,6 +1,6 @@
 # 🦎 Curlimp
 
-> **Publication draft:** Curlimp 0.3.0 is currently a local development preview. The new image and addresses below are not published yet. Build this checkout with `docker build -f docker/Dockerfile.build --target runtime -t curlimp:local .` and use `curlimp:local` to test locally.
+> **Publication draft:** Curlimp 0.3.0 is currently a local development preview. The image and documentation site below are not published yet. Build this checkout with `docker build -f docker/Dockerfile.build --target runtime -t curlimp:local .` and use `curlimp:local` to test locally.
 
 **Browser impersonation from your terminal. Ready to run with Docker.**
 
@@ -77,11 +77,11 @@ docker run --rm juanfontes/curlimp:0.3.0 \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```
 
-Use a digest when immutable selection is required. During the local migration, the root Dockerfile uses `curlimp:local`; it will be pinned to the published multiarch digest at release time. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
+Use a digest when immutable selection is required. For local development, the root Dockerfile uses `curlimp:local`; it will be pinned to the published multiarch digest at release time. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
 
 ## 💾 Export TXT or JSON responses
 
-Introduced in **0.2.0**: `--txt` saves a response to an automatic `.txt` file, `--json-file` saves a structured `.json` file, and `--json-output` prints that JSON object to stdout. These are project extensions; `--json DATA` still sends JSON in a request.
+`--txt` saves a response to an automatic `.txt` file, `--json-file` saves a structured `.json` file, and `--json-output` prints that JSON object to stdout. These are project extensions; `--json DATA` still sends JSON in a request.
 
 ```sh
 # JSON in the terminal: headers and complete body.
@@ -158,7 +158,7 @@ Profiles are versioned presets, not an automatically refreshed browser list. Sel
 docker run --rm juanfontes/curlimp:latest --list-profiles
 ```
 
-The command validates the catalog against the installed engine. See the [catalog](https://github.com/JuanFontes/curlimp/blob/v0.3.0/src/profiles.txt) and [native profile settings](https://github.com/JuanFontes/curlimp/blob/v0.3.0/vendor/curl-impersonate/patches/curl.patch).
+The command validates the catalog against the installed engine. See the [catalog](https://github.com/JuanFontes/curlimp/blob/v0.3.0/src/profiles.txt) and [native profile settings](https://github.com/JuanFontes/curlimp/blob/v0.3.0/vendor/engine/patches/curl.patch).
 
 ### Profile selection and environment variables
 
@@ -311,7 +311,7 @@ curli -sS -o /dev/null -w 'http=%{http_version} seconds=%{time_total}\n' https:/
 
 Status endpoints select the response code; they do not echo request data, validate the sample credentials or emulate a login flow. `/status/200` has an empty body, while `/status/418` deliberately returns an error with a small body. HTTP errors only cause a failed transfer result when a fail flag is enabled.
 
-Read the [body/header guide](https://juanfontes.github.io/curlimp/docs/body-and-headers/), [redirect/error guide](https://juanfontes.github.io/curlimp/docs/redirects-and-status/), and [file/pipeline guide](https://juanfontes.github.io/curlimp/docs/files/) for the reasoning behind each flag. Consult the [CLI reference](https://juanfontes.github.io/curlimp/docs/cli-reference/) before migrating scripts.
+Read the [body/header guide](https://juanfontes.github.io/curlimp/docs/body-and-headers/), [redirect/error guide](https://juanfontes.github.io/curlimp/docs/redirects-and-status/), and [file/pipeline guide](https://juanfontes.github.io/curlimp/docs/files/) for the reasoning behind each flag. Consult the [CLI reference](https://juanfontes.github.io/curlimp/docs/cli-reference/) when using Curlimp in scripts.
 
 ## 💻 Prefer a native download?
 

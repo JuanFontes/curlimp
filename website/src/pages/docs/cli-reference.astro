@@ -14,11 +14,13 @@ const options = cliHelp
   title="CLI options reference"
   slug="cli-reference"
   section="Usage"
-  description="The supported curlimp options for requests, transport, output and write-out. Check exact flags and limits before migrating curl scripts."
+  description="The supported curlimp options for requests, transport, output and write-out. Check exact flags and limits when using Curlimp in scripts."
 >
   <h2>Command shape</h2>
   <CodeBlock
-    code={'curlimp [options] <URL>\ncurlimp --help\ncurlimp --version'}
+    code={
+      'curlimp [options] [PROFILE] <URL> [options]\ncurlimp --help\ncurlimp --version'
+    }
     lang="text"
     label="Command syntax"
   />

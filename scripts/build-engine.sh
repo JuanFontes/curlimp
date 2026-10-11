@@ -15,7 +15,7 @@ fi
 upstream="$workspace/upstream"
 build="$workspace/build"
 idn_archive="$build/deps/downloads/libidn2-$LIBIDN2_VERSION.tar.gz"
-sh "$script_dir/prepare-engine.sh" "$script_dir/../vendor/curl-impersonate" "$upstream" "$ENGINE_VENDOR_SHA256"
+sh "$script_dir/prepare-engine.sh" "$script_dir/../vendor/engine" "$upstream" "$ENGINE_VENDOR_SHA256"
 # Prepopulate the exact archive consumed by the upstream IDN helper. Both
 # mirrors must match the same fixed digest; a failed verification stops build.
 if ! sh "$script_dir/fetch-verified.sh" "$LIBIDN2_SOURCE_URL" "$LIBIDN2_SOURCE_SHA256" "$idn_archive"; then

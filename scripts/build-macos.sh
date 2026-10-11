@@ -18,7 +18,7 @@ build="$workspace/build"
 upstream="$workspace/upstream"
 [ ! -e "$prefix" ] || { echo 'Use a fresh native installation prefix' >&2; exit 2; }
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0}
-sh "$script_dir/prepare-engine.sh" "$repo/vendor/curl-impersonate" "$upstream" "$ENGINE_VENDOR_SHA256"
+sh "$script_dir/prepare-engine.sh" "$repo/vendor/engine" "$upstream" "$ENGINE_VENDOR_SHA256"
 cmake -S "$upstream" -B "$build" \
   "-DCMAKE_INSTALL_PREFIX=$prefix" "-DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOSX_DEPLOYMENT_TARGET" \
   -DUSE_LIBIDN2=OFF "-DCURL_IMPERSONATE_VERSION=$ENGINE_VERSION" \

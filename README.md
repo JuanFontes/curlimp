@@ -9,7 +9,7 @@
 <p>
   <a href="Cargo.toml"><img src="https://img.shields.io/badge/Rust-CLI-E57324?style=for-the-badge&amp;logo=rust&amp;logoColor=white" alt="Rust CLI"></a>
   <a href="native/bridge.c"><img src="https://img.shields.io/badge/C-Native_bridge-526D82?style=for-the-badge&amp;logo=c&amp;logoColor=white" alt="C native bridge"></a>
-  <a href="vendor/curl-impersonate/"><img src="https://img.shields.io/badge/libcurl-Native_engine-073551?style=for-the-badge&amp;logo=curl&amp;logoColor=white" alt="libcurl native engine"></a>
+  <a href="vendor/engine/"><img src="https://img.shields.io/badge/libcurl-Native_engine-073551?style=for-the-badge&amp;logo=curl&amp;logoColor=white" alt="libcurl native engine"></a>
   <a href="https://hub.docker.com/r/juanfontes/curlimp"><img src="https://img.shields.io/badge/Docker-Ready_to_run-2496ED?style=for-the-badge&amp;logo=docker&amp;logoColor=white" alt="Ready-to-run Docker image"></a>
 </p>
 
@@ -37,7 +37,7 @@
 
 <a id="use-the-published-docker-image"></a>
 
-> **Local development preview:** Curlimp 0.3.0 is in development. The new release, Pages site and Docker Hub image are not published yet. To test this checkout now, build and run the local image:
+> **Local development preview:** Curlimp 0.3.0 is in development. The release, documentation site and Docker Hub image are not published yet. To test this checkout now, build and run the local image:
 
 ```sh
 docker build -f docker/Dockerfile.build --target runtime -t curlimp:local .
@@ -199,7 +199,7 @@ The [Docker image](https://hub.docker.com/r/juanfontes/curlimp) supports Linux a
 - Browser fingerprint equivalence has not yet been verified against real browser captures. HTTP/3 is exposed by the engine but has not been validated end to end.
 - `--no-impersonate` disables browser presets while keeping the same modified engine; it does not switch to your system curl.
 
-See the **[compatibility guide](https://juanfontes.github.io/curlimp/docs/compatibility/)** before migrating scripts. Run `curli --help` for supported flags and `curli --version` for the installed release and default profile.
+See the **[compatibility guide](https://juanfontes.github.io/curlimp/docs/compatibility/)** when using Curlimp in scripts. Run `curli --help` for supported flags and `curli --version` for the installed release and default profile.
 
 ## 📚 Go deeper
 
@@ -221,4 +221,4 @@ Start with [building from source](https://juanfontes.github.io/curlimp/docs/buil
 
 ## 📄 License
 
-Original code is MIT licensed under [LICENSE](LICENSE). [NOTICE](NOTICE) describes incorporated components; the engine's original license remains in [vendor/curl-impersonate/LICENSE](vendor/curl-impersonate/LICENSE). Published images and native bundles retain dependency license notices. This is an independent project, not an official curl or upstream curl-impersonate release.
+Original code is MIT licensed under [LICENSE](LICENSE). [NOTICE](NOTICE) describes incorporated components; the engine's original license remains in [vendor/engine/LICENSE](vendor/engine/LICENSE). Published images and native bundles retain dependency license notices. Curlimp is an independent project built around a modified libcurl engine.

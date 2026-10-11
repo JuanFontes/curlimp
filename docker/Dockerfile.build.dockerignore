@@ -17,7 +17,8 @@
 !tests/
 !tests/**
 !vendor/
-!vendor/**
+!vendor/engine/
+!vendor/engine/**
 
 # Also exclude local files inside the included source directories.
 **/.git

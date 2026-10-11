@@ -45,14 +45,14 @@ The compiled definitions live in the native patch set. `src/profiles.txt` is a c
 
 ## Builds and dependencies
 
-The repository carries the native build inputs and patches under `vendor/`. `engine.lock` and the vendored superbuild record verified source inputs. Builds still download pinned dependency archives and use package/container registries; retaining local build inputs does not eliminate every external build dependency.
+The repository carries the native build inputs and patches under `vendor/engine/`. `engine.lock` and the vendored superbuild record verified source inputs. Builds still download pinned dependency archives and use package/container registries; retaining local build inputs does not eliminate every external build dependency.
 
 The native engine was incorporated from existing open-source work. Its notices and source provenance remain in the repository and runtime bundles. The Rust CLI, bridge and release workflow build on that foundation.
 
 ## Distribution
 
 - The maintainer Dockerfile compiles the native engine and Rust CLI, then assembles a minimal runtime with libraries and CA files.
-- The root Dockerfile derives from a published runtime pinned by digest.
+- The root Dockerfile derives from a ready-made runtime selected by `RUNTIME_IMAGE`. Local development uses `curlimp:local`; published releases use a pinned image digest.
 - Linux downloads include a launcher, dynamic loader, libraries and certificates.
 - Apple Silicon downloads include the native executable and its adjacent engine library.
 

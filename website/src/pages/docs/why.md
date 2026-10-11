@@ -26,11 +26,11 @@ curli --impersonate safari2601 -sS -I https://httpbin.org/status/200
 
 The default also enables response decompression. Explicit options remain available when a script needs different behavior.
 
-## Why keep libcurl?
+## Why libcurl?
 
-The native engine already implements HTTP transport, TLS integration, redirects, proxies and browser-profile settings. Replacing it with a new networking stack would introduce another large compatibility and maintenance task.
+Libcurl provides HTTP transport, TLS integration, redirects and proxies. The patched native engine adds browser-profile settings. Using that engine lets Curlimp focus on the command-line interface, response exports, diagnostics and distribution.
 
-Rust owns the interface around that engine: parsing arguments, preparing inputs, routing outputs and packaging a focused CLI. The C bridge keeps the native boundary small. This is not a rewrite of libcurl in Rust, and the native engine was not created from scratch here.
+Rust handles argument parsing, input preparation, output routing and CLI errors. A small C bridge connects it to the native engine. Curlimp builds on existing open-source transport and profile implementations; dependency notices and source provenance are included in the repository and packages.
 
 ## What we prioritize
 

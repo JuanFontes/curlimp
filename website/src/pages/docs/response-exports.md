@@ -9,7 +9,7 @@ lead: 'Keep a complete response for later, or pass a structured result to anothe
 
 ## Choose an export mode
 
-These are project extensions introduced in **0.2.0**, not standard curl options. Without them, ordinary response output is unchanged.
+These are Curlimp extensions, not standard curl options. Without them, ordinary response output is unchanged.
 
 | Option          | Destination                                               | Contents                                                             |
 | --------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |

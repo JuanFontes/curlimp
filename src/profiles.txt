@@ -1,4 +1,4 @@
-# Native engine profile catalog, baseline 2.2.3 (MIT; see vendor/curl-impersonate/LICENSE).
+# Native engine profile catalog, baseline 2.2.3 (MIT; see vendor/engine/LICENSE).
 chrome100
 chrome101
 chrome104

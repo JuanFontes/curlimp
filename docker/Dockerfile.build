@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /src
 COPY engine.lock ./
 COPY scripts/fetch-verified.sh scripts/prepare-engine.sh scripts/build-engine.sh scripts/
-COPY vendor/curl-impersonate vendor/curl-impersonate
-RUN --network=none . ./engine.lock && sh scripts/prepare-engine.sh vendor/curl-impersonate /build/upstream "$ENGINE_VENDOR_SHA256"
+COPY vendor/engine vendor/engine
+RUN --network=none . ./engine.lock && sh scripts/prepare-engine.sh vendor/engine /build/upstream "$ENGINE_VENDOR_SHA256"
 RUN sh scripts/build-engine.sh /build /opt/native "$NATIVE_JOBS"
 
 FROM scratch AS engine-artifacts

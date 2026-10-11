@@ -1,7 +1,7 @@
 # Vendored engine baseline; informational revision, no remote engine fetch.
 ENGINE_VERSION=2.2.3
 ENGINE_REVISION=6e8f87760a4dd96771e96fc9d55440dcd8845243
-# SHA-256 of vendor/curl-impersonate/SHA256SUMS.
+# SHA-256 of vendor/engine/SHA256SUMS.
 ENGINE_VENDOR_SHA256=85eb61c1b57002ec181f55d6a7dadcb6d4c095cc8af9102b29c567565d7aa224
 # This release's IDN preparation script does not verify its download itself.
 LIBIDN2_VERSION=2.3.7

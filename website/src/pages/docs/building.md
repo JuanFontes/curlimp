@@ -16,7 +16,7 @@ docker build --build-arg RUNTIME_IMAGE=curlimp:local -t curlimp:distribution-loc
 docker run --rm curlimp:distribution-local --version
 ```
 
-The root Dockerfile starts from the runtime selected by `RUNTIME_IMAGE`. During this local migration it defaults to `curlimp:local`; the release will pin a published image digest. It does not compile your local CLI changes.
+The root Dockerfile starts from the runtime selected by `RUNTIME_IMAGE`. For local development it defaults to `curlimp:local`; the release will pin a published image digest. It does not compile your local CLI changes.
 
 ## Compile the engine and CLI
 

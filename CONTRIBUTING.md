@@ -46,7 +46,7 @@ docker build -f docker/Dockerfile.build --platform linux/arm64 \
 
 ### Derive your own image from a ready-made runtime
 
-During the local Curlimp migration, the root `Dockerfile` defaults to `curlimp:local`. Build that runtime with the maintainer Dockerfile first. At publication, replace the default with the verified published **multiarch digest**. Build a derived image with:
+For local development, the root `Dockerfile` defaults to `curlimp:local`. Build that runtime with the maintainer Dockerfile first. At publication, replace the default with the verified published **multiarch digest**. Build a derived image with:
 
 ```sh
 docker build --build-arg RUNTIME_IMAGE=curlimp:local -t curlimp:distribution-local .
@@ -147,7 +147,7 @@ Packaging changes alone do not require rebuilding an unchanged Docker runtime. I
 
 `engine.lock` pins the checksum manifest of the local engine snapshot and the separate libidn2 source archive. The vendored CMake superbuild pins the remaining dependency sources. `scripts/prepare-engine.sh` checks the manifest and imported files before use; `scripts/build-engine.sh` (Linux) and `scripts/build-macos.sh` (Apple Silicon) compile them and run native feature checks. The native API bridge uses matching headers and libraries. Native profile definitions are compiled into the engine; `src/profiles.txt` lists their names and is embedded in the CLI at compile time.
 
-To update the engine, review and import the required source changes, preserve their notices, and update `vendor/curl-impersonate/ORIGIN.md`. Regenerate the existing `SHA256SUMS` file list and its hash in `engine.lock`, then update the profile catalog when needed. Build and test all three platform/architecture combinations in CI. Compare network captures with real browsers before claiming a fidelity improvement.
+To update the engine, review and import the required source changes, preserve their notices, and update `vendor/engine/ORIGIN.md`. Regenerate the existing `SHA256SUMS` file list and its hash in `engine.lock`, then update the profile catalog when needed. Build and test all three platform/architecture combinations in CI. Compare network captures with real browsers before claiming a fidelity improvement.
 
 The runtime includes build provenance at `/opt/native/engine-build.txt`, plus `engine-origin.md`, `engine-inputs.sha256`, `runtime-libraries.txt`, and `runtime-packages.txt`. Inspect them in a filesystem export or with `docker cp`; the diagnostic image also supports `--entrypoint cat`.
 
