@@ -10,7 +10,8 @@ COPY engine.lock ./
 COPY scripts/fetch-verified.sh scripts/prepare-engine.sh scripts/build-engine.sh scripts/
 COPY vendor/engine vendor/engine
 RUN --network=none . ./engine.lock && sh scripts/prepare-engine.sh vendor/engine /build/upstream "$ENGINE_VENDOR_SHA256"
-RUN sh scripts/build-engine.sh /build /opt/native "$NATIVE_JOBS"
+# Keep the installed engine in the cache, not intermediate C/C++ object trees.
+RUN sh scripts/build-engine.sh /build /opt/native "$NATIVE_JOBS" && rm -rf /build
 
 FROM scratch AS engine-artifacts
 COPY --from=native-builder /opt/native/lib/libcurl-impersonate.so* /lib/
@@ -32,9 +33,13 @@ RUN mkdir -p /out/native/lib /out/licenses \
     && cp /opt/native/engine-build.txt /opt/native/engine-origin.md /opt/native/engine-inputs.sha256 /out/native/ \
     && cp /opt/native/LICENSE* /out/licenses/
 
-FROM builder AS test
-RUN apt-get update && apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh \
+FROM builder AS test-tools
+RUN apt-get update && apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh make \
     && rm -rf /var/lib/apt/lists/*
+
+FROM test-tools AS test
+COPY vendor/engine/Makefile /native-check.mk
+RUN --network=none LD_LIBRARY_PATH=/opt/native/lib make -f /native-check.mk checkbuild CURL_BIN=/opt/native/bin/curl-impersonate
 COPY tests tests
 COPY scripts/fetch-verified.sh scripts/prepare-engine.sh scripts/
 RUN --network=none python3 tests/vendor_engine.py && python3 tests/source_download.py

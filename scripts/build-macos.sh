@@ -4,8 +4,10 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo=$(dirname -- "$script_dir")
 . "$repo/engine.lock"
-workspace=${1:?Usage: build-macos.sh absolute-workspace [jobs]}
+workspace=${1:?Usage: build-macos.sh absolute-workspace [jobs] [--engine-only]}
 jobs=${2:-4}
+mode=${3:-full}
+case "$mode" in full|--engine-only) ;; *) echo 'Unknown build mode' >&2; exit 2 ;; esac
 [ "$(uname -s)/$(uname -m)" = Darwin/arm64 ] || { echo 'Native macOS arm64 is required' >&2; exit 2; }
 case "$workspace" in /*) ;; *) echo 'Workspace must be absolute' >&2; exit 2 ;; esac
 case "$workspace" in *,*) echo 'Build workspace cannot contain a comma' >&2; exit 2 ;; esac
@@ -48,6 +50,7 @@ EOF
 ) >> "$prefix/engine-build.txt"
 test -f "$prefix/include/curl/curl.h"
 test -f "$prefix/lib/libcurl-impersonate.dylib"
+[ "$mode" != --engine-only ] || exit 0
 cd "$repo"
 CURL_IMPERSONATE_DIR="$prefix" CARGO_TARGET_DIR="$workspace/target" cargo build --release --locked
 printf 'rustc_version=%s\n' "$(rustc --version)" >> "$prefix/engine-build.txt"

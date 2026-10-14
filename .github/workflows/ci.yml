@@ -2,7 +2,7 @@ name: Build and package runtime
 on:
   push:
     branches:
-      - '**'
+      - main
     paths-ignore:
       - 'website/**'
       - 'README.md'
@@ -10,6 +10,8 @@ on:
       - 'CONTRIBUTING.md'
       - '.gitignore'
       - '.github/workflows/pages.yml'
+      - 'scripts/published_release.py'
+      - 'tests/published_release.py'
   pull_request:
     paths-ignore:
       - 'website/**'
@@ -18,10 +20,25 @@ on:
       - 'CONTRIBUTING.md'
       - '.gitignore'
       - '.github/workflows/pages.yml'
+      - 'scripts/published_release.py'
+      - 'tests/published_release.py'
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  # Release promotion consumes only the named bundles and image archives.
+  DOCKER_BUILD_RECORD_UPLOAD: 'false'
 jobs:
+  workflow-helpers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: python3 tests/native_cache.py
+      - run: python3 tests/published_release.py
   docker:
     strategy:
       fail-fast: false
@@ -35,9 +52,11 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
-    # Use the daemon builder so the distribution build can resolve the local runtime image.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up isolated build cache
+        id: buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Read release version from Cargo.toml
         run: |
           version=$(python3 scripts/release_version.py)
@@ -47,11 +66,21 @@ jobs:
           python3 tests/release_package.py
           python3 tests/release_artifacts.py
       - name: Test source engine and runtime filesystem
-        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target test-minimal .
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          file: docker/Dockerfile.build
+          platforms: ${{ matrix.platform }}
+          build-args: NATIVE_JOBS=2
+          target: test-minimal
+          cache-from: type=gha,version=2,scope=runtime-${{ matrix.arch }}-v1
+          cache-to: type=gha,version=2,scope=runtime-${{ matrix.arch }}-v1,mode=max
+          # Always execute the tests, including against the exact minimal rootfs.
+          no-cache-filters: test,test-minimal
       - name: Export runtime artifact
-        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target runtime-artifacts --output type=local,dest=dist/runtime/${{ matrix.arch }} .
+        run: docker buildx build --builder '${{ steps.buildx.outputs.name }}' -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target runtime-artifacts --output type=local,dest=dist/runtime/${{ matrix.arch }} .
       - name: Build ready-to-run runtime image
-        run: docker build --builder default -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --build-arg SOURCE_REVISION="$GITHUB_SHA" --build-arg RELEASE_VERSION="$RELEASE_VERSION" --target runtime -t curlimp:runtime .
+        run: docker buildx build --builder '${{ steps.buildx.outputs.name }}' -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --build-arg SOURCE_REVISION="$GITHUB_SHA" --build-arg RELEASE_VERSION="$RELEASE_VERSION" --target runtime --load -t curlimp:runtime .
       - name: Derive distribution image without source compilation
         run: docker build --builder default --platform ${{ matrix.platform }} --build-arg RUNTIME_IMAGE=curlimp:runtime --network none -t curlimp:local .
       - name: Inspect packaged engine and profiles without network
@@ -125,8 +154,37 @@ jobs:
           echo "$(brew --prefix nghttp2)/bin" >> "$GITHUB_PATH"
       - name: Test macOS packager with real Mach-O fixtures
         run: python3 tests/macos_package.py
-      - name: Build verified native engine and CLI
-        run: sh scripts/build-macos.sh "$RUNNER_TEMP/macos-build" 3
+      - name: Fingerprint native inputs and toolchain
+        id: native-key
+        run: |
+          key=$(python3 scripts/native_cache.py key)
+          [[ "$key" =~ ^[0-9a-f]{64}$ ]]
+          echo "key=macos-native-v1-$key" >> "$GITHUB_OUTPUT"
+      - name: Restore installed native engine
+        id: native-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/macos-build/native
+          key: ${{ steps.native-key.outputs.key }}
+      - name: Verify cached engine or compile from source
+        env:
+          NATIVE_CACHE_KEY: ${{ steps.native-key.outputs.key }}
+        run: |
+          prefix="$RUNNER_TEMP/macos-build/native"
+          if python3 scripts/native_cache.py verify --prefix "$prefix" --key "$NATIVE_CACHE_KEY"; then
+            echo 'Reusing verified native engine; CLI and tests will run from this checkout.'
+          else
+            rm -rf "$prefix"
+            sh scripts/build-macos.sh "$RUNNER_TEMP/macos-build" 3 --engine-only
+            python3 scripts/native_cache.py seal --prefix "$prefix" --key "$NATIVE_CACHE_KEY"
+          fi
+      - name: Check installed native features even on cache hits
+        run: make -f vendor/engine/Makefile checkbuild CURL_BIN="$RUNNER_TEMP/macos-build/native/bin/curl-impersonate"
+      - name: Build current Rust CLI
+        env:
+          CURL_IMPERSONATE_DIR: ${{ runner.temp }}/macos-build/native
+          CARGO_TARGET_DIR: ${{ runner.temp }}/macos-build/target
+        run: cargo build --release --locked
       - name: Test CLI parsing
         env:
           CURL_IMPERSONATE_DIR: ${{ runner.temp }}/macos-build/native
@@ -156,6 +214,12 @@ jobs:
           python3 tests/zsh_completion.py
           "$CLI" -sS --fail \
             --connect-timeout 10 --max-time 30 -o /dev/null https://httpbin.org/status/200
+      - name: Cache verified native engine after bundle tests
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/macos-build/native
+          key: ${{ steps.native-key.outputs.key }}
       - name: Upload tested macOS bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
