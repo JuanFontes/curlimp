@@ -22,7 +22,7 @@ Redirection also works with a full Docker command because the host shell handles
 `-o` is interpreted by the CLI. In Docker, that path is inside the container:
 
 ```sh
-docker run --rm -v "$PWD:/work" juanfontes/curlimp:latest \
+docker run --rm -v "$PWD:/work" juanfontes/curlimp \
   -sS -o /work/response.body https://httpbin.org/status/418
 ```
 
@@ -41,7 +41,7 @@ The JSON is sent as the request body; the status fixture does not echo it. With 
 
 ```sh
 printf '{"message":"hello"}' | docker run --rm -i \
-  juanfontes/curlimp:latest -sS -i --json @- https://httpbin.org/status/201
+  juanfontes/curlimp -sS -i --json @- https://httpbin.org/status/201
 ```
 
 The CLI's `-i` after the image name means “include response headers.” Avoid Docker's `-t` in pipelines.
@@ -53,7 +53,7 @@ Create a small payload, then mount the current directory read-only:
 ```sh
 printf '{"message":"hello"}\n' > payload.json
 
-docker run --rm -v "$PWD:/work:ro" juanfontes/curlimp:latest \
+docker run --rm -v "$PWD:/work:ro" juanfontes/curlimp \
   -sS -i --json @/work/payload.json https://httpbin.org/status/201
 ```
 

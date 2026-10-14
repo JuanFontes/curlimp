@@ -11,7 +11,7 @@ export const href = (path = '') =>
 export const absolute = (path = '') => new URL(href(path), origin).href;
 export const version = cargo.match(/^version\s*=\s*"([^"]+)"/m)![1];
 export const release = `${repository}/releases/tag/v${version}`;
-export const image = 'juanfontes/curlimp:latest';
+export const image = 'juanfontes/curlimp';
 export const versionedImage = `juanfontes/curlimp:${version}`;
 export const profiles = profileSource
   .split('\n')

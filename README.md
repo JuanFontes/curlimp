@@ -42,7 +42,7 @@
 With Docker installed, make your first request:
 
 ```sh
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -I https://httpbin.org/status/200
 ```
 
@@ -51,14 +51,14 @@ This sends a HEAD request and prints the response headers. Docker downloads the 
 **Chrome 150 is the default profile.** Compressed responses are decoded automatically while a profile is active. Put an exact profile name before the URL, or use `--impersonate <profile>`, to choose another browser. `--no-impersonate` disables profiles; `--no-compressed` retains encoded response bytes.
 
 ```sh
-docker run --rm juanfontes/curlimp:latest firefox147 \
+docker run --rm juanfontes/curlimp firefox147 \
   -sS -I https://httpbin.org/status/200
 
 # With a native installation:
 curlimp firefox147 --json-output -sS -i https://httpbin.org/status/418
 ```
 
-`latest` follows stable releases, but Docker reuses a locally cached image. Run `docker pull juanfontes/curlimp:latest` to update it. For scripts and CI, pin a version such as `0.3.1`, or a digest. [Updates and fixed versions →](https://juanfontes.github.io/curlimp/docs/docker/#updates-and-fixed-versions)
+No tag is needed for everyday use: Docker defaults to `latest`, which follows stable releases. Docker reuses a locally cached image; run `docker pull juanfontes/curlimp` to update it. For scripts and CI, pin a version such as `0.3.1`, or a digest. [Updates and fixed versions →](https://juanfontes.github.io/curlimp/docs/docker/#updates-and-fixed-versions)
 
 ### ⌨️ Use `curlimp` with Zsh autocomplete
 
@@ -114,17 +114,17 @@ Use `--txt` for an automatically named TXT file, `--json-file` for a JSON file, 
 
 ```sh
 # Print a JSON object with response headers and body.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --json-output -sS -i https://httpbin.org/status/418
 
 # Save a TXT file in the current host directory.
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  juanfontes/curlimp:latest \
+  juanfontes/curlimp \
   --txt -sS -i https://httpbin.org/status/418
 
 # Save a JSON file containing HEAD response headers only.
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  juanfontes/curlimp:latest \
+  juanfontes/curlimp \
   --json-file -sS -I https://httpbin.org/status/200
 ```
 
