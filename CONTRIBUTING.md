@@ -42,7 +42,24 @@ docker build -f docker/Dockerfile.build --platform linux/arm64 \
   --target runtime-debian -t curlimp:debug .
 ```
 
-`NATIVE_JOBS` defaults to 4; smaller builders can use `--build-arg NATIVE_JOBS=2`. CLI-only changes reuse native compilation layers when cached. Dockerfile-specific ignore rules include only source-build inputs and exclude generated or local files; distribution builds need no local files. Update `docker/Dockerfile.build.dockerignore` when adding a new build input outside the listed paths. The GitHub Actions workflow is configured to test each architecture, export runtime files into the runner filesystem, and build both runtime and distribution images using the same daemon builder. It also packages Linux downloads, runs the extracted launcher directly on each native runner, and uploads the tested archives as workflow artifacts. It also retains the tested Docker images for seven days. It does not publish automatically; the separate release workflow consumes a successful run.
+`NATIVE_JOBS` defaults to 4; smaller builders can use `--build-arg NATIVE_JOBS=2`. CLI-only changes reuse native compilation layers when cached. Dockerfile-specific ignore rules include only source-build inputs and exclude generated or local files; distribution builds need no local files. Update `docker/Dockerfile.build.dockerignore` when adding a new build input outside the listed paths. The GitHub Actions workflow tests each architecture with an isolated Buildx builder and a persistent cache, exports runtime files into the runner filesystem, and loads the tested runtime into the Docker daemon before deriving the distribution image. It also packages Linux downloads, runs the extracted launcher directly on each native runner, and uploads the tested archives as workflow artifacts. It also retains the tested Docker images for seven days. It does not publish automatically; the separate release workflow consumes a successful run.
+
+### CI cache and validation
+
+Runtime CI runs on pull requests, pushes to `main`, and manual dispatch. Branch pushes do not start a second build alongside their pull request. New validation runs cancel obsolete runs for the same pull request or branch; release publication remains serialized and is never cancelled this way.
+
+Linux uses GitHub Actions BuildKit caches separated by architecture. Input changes invalidate their dependent layers. Intermediate native build trees are removed before the installed engine layer is saved. The `test` and `test-minimal` stages explicitly bypass cache: parser, completion, HTTP/TLS/HTTP2, export and minimal-runtime tests execute on every run. Extracted download tests also always run.
+
+macOS caches only the installed native engine. The exact key includes vendored inputs, build scripts, OS/architecture, deployment target, compiler, SDK and native build-tool versions. Every restore verifies the complete file inventory, hashes, permissions and symlink targets; invalid or incomplete installations are rebuilt. The Rust CLI is compiled from the current checkout and the resulting bundle is tested before saving a new engine cache. `build-macos.sh WORKSPACE JOBS --engine-only` supplies this CI path; the normal command still builds both the engine and CLI.
+
+There are no fallback macOS restore keys. GitHub isolates pull-request caches from the default branch. A cache miss is a normal source build. To refresh cached system packages/certificates or recover from a bad cache, delete the affected Actions caches or bump the cache-generation suffixes in `ci.yml` (`runtime-ARCH-v1` and `macos-native-v1`). Cache reuse does not establish byte-for-byte reproducibility.
+
+The cache and publication helpers have focused, network-free tests:
+
+```sh
+python3 tests/native_cache.py
+python3 tests/published_release.py
+```
 
 ### Derive your own image from a ready-made runtime
 
@@ -144,6 +161,8 @@ Configure repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` using a 
 6. Verify anonymous image pulls, asset downloads and the documentation website before announcing a public release. Repository visibility and Pages activation are managed separately from the release workflow.
 
 The release workflow intentionally stops if the version already exists. If publication is interrupted, inspect the registry, draft release and logs before recovering; do not delete or overwrite published versioned assets just to rerun it. Use a new version for changed binaries. Refresh only Docker Hub text with `python3 scripts/update-dockerhub.py` and the same two environment variables.
+
+After a successful release workflow, the Pages workflow rebuilds and checks the site. Production deployment requires a stable GitHub release matching `Cargo.toml`, all three native archives and `SHA256SUMS`, and an active Docker version tag for Linux amd64/arm64. Until those downloads exist, the previous public site stays online. API failures fail the publication check instead of bypassing it. See [website/README.md](website/README.md#publish).
 
 ### Engine inputs and updates
 

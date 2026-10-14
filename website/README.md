@@ -40,7 +40,20 @@ The original visual system uses Inter and JetBrains Mono (SIL Open Font License)
 
 ## Publish
 
-The Pages workflow validates builds on pushes and pull requests. Deployment stays disabled until the repository Actions variable `PAGES_ENABLED` is set to `true`. Use **GitHub Actions** as the repository's Pages source and set that variable; successful builds on `main` then deploy. Forks can leave the variable unset to build without deploying. `astro.config.mjs` fixes the production origin and `/curlimp` base. Change both deliberately when changing the domain, then check canonical URLs, internal links, share metadata and sitemap.
+The Pages workflow validates builds on pushes and pull requests. Deployment stays disabled until the repository Actions variable `PAGES_ENABLED` is set to `true`. Use **GitHub Actions** as the repository's Pages source and set that variable; successful builds on `main` deploy only after the publication gate passes. Forks can leave the variable unset to build without deploying. `astro.config.mjs` fixes the production origin and `/curlimp` base. Change both deliberately when changing the domain, then check canonical URLs, internal links, share metadata and sitemap.
+
+The production gate reads the version from `Cargo.toml` and checks the public GitHub release and Docker Hub metadata. It requires a stable, published release with all three native archives and `SHA256SUMS`, plus an active versioned Docker image for Linux amd64 and arm64. Missing or prerelease downloads skip deployment and preserve the current public site; authentication, rate-limit and server errors fail the check. Pull requests build and validate without deploying.
+
+Completion of **Publish tested release** also triggers Pages through `workflow_run`, so publishing with `GITHUB_TOKEN` does not depend on a follow-up `release` event. Only successful releases from this repository's `main` branch qualify. The site is built from current `main`; if it has already advanced to another unpublished version, deployment is skipped. After fixing a failed gate or publishing missing assets, rerun the Pages workflow on `main`.
+
+To check eligibility without deploying (Python 3.11+):
+
+```sh
+python3 scripts/published_release.py
+python3 tests/published_release.py
+```
+
+Run these commands from the repository root. The check accepts optional `GH_TOKEN` for GitHub API rate limits; that token is never sent to Docker Hub. An ineligible release is a successful check with `published=false`, not a build failure.
 
 The runtime workflow ignores website and public documentation edits. It still runs for engine, CLI, packaging and runtime-workflow changes.
 
