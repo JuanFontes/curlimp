@@ -25,7 +25,6 @@ firefox133
 firefox135
 firefox144
 firefox147
-okhttp4_android
 safari153
 safari155
 safari170

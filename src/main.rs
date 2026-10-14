@@ -58,6 +58,18 @@ fn main() {
         .skip(1)
         .map(|s| s.into_string())
         .collect();
+    if let Ok(args) = &args {
+        extern "C" {
+            fn ci_mask_argument(index: usize, offset: usize);
+        }
+        for (index, offset) in cli::credential_arguments(args) {
+            // The C helper bounds-checks argv and overwrites writable OS storage;
+            // parsing retains the owned Rust copies made above.
+            unsafe {
+                ci_mask_argument(index, offset);
+            }
+        }
+    }
     let parsed = args
         .map_err(|_| CliError::new(2, "Curlimp requires UTF-8 arguments"))
         .and_then(cli::parse);

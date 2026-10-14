@@ -37,7 +37,7 @@ impl Export {
         let timestamp = unsafe { CStr::from_ptr(timestamp.as_ptr()) }.to_string_lossy();
         Ok(Self {
             mode,
-            include_headers: config.include || config.head,
+            include_headers: config.include,
             head: config.head,
             stem: format!("{timestamp}_{}", url_slug(&config.url)),
             path: None,

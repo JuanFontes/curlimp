@@ -2,7 +2,7 @@ use crate::{
     body,
     cli::{CliError, Config, DataKind},
     export::Export,
-    writeout::{self, Token},
+    writeout::Token,
 };
 use std::{
     ffi::{c_char, c_int, c_long, c_void, CStr, CString},
@@ -173,22 +173,35 @@ impl Handle {
         unsafe { ci_info_long(self.raw.as_ptr(), name.as_ptr()) as i64 }
     }
 
-    fn info_string(&self, name: &str) -> String {
+    fn info_bytes(&self, name: &str) -> Vec<u8> {
         let name = CString::new(name).expect("internal info name");
-        unsafe { text(ci_info_string(self.raw.as_ptr(), name.as_ptr())) }
+        // libcurl owns this NUL-terminated metadata until handle cleanup.
+        unsafe { CStr::from_ptr(ci_info_string(self.raw.as_ptr(), name.as_ptr())) }
+            .to_bytes()
+            .to_vec()
     }
 
     fn write_out(&self, tokens: &[Token], code: i32) -> Result<(), CliError> {
         let mut stdout = io::stdout().lock();
         for token in tokens {
             let value = match token {
-                Token::Text(t) => t.clone(),
+                Token::Text(t) => {
+                    stdout
+                        .write_all(t)
+                        .map_err(|e| CliError::new(23, format!("writing write-out: {e}")))?;
+                    continue;
+                }
                 Token::Variable(name) => match name.as_str() {
                     "http_code" | "response_code" => {
                         format!("{:03}", self.info_number("http_code"))
                     }
                     "num_redirects" => self.info_number(name).to_string(),
-                    "url_effective" | "content_type" => self.info_string(name),
+                    "url_effective" | "content_type" => {
+                        stdout
+                            .write_all(&self.info_bytes(name))
+                            .map_err(|e| CliError::new(23, format!("writing write-out: {e}")))?;
+                        continue;
+                    }
                     "time_total" => format!("{:.6}", unsafe { ci_total_time(self.raw.as_ptr()) }),
                     "exitcode" => code.to_string(),
                     "http_version" => match self.info_number(name) {
@@ -262,20 +275,29 @@ fn has_header(headers: &[String], name: &str) -> bool {
 
 pub fn run(config: &Config) -> Result<(), CliError> {
     // Validate formats and read inputs BEFORE opening/truncating output files.
-    let format = config
-        .write_out
-        .as_deref()
-        .map(writeout::parse)
-        .transpose()?
-        .unwrap_or_default();
-    let data = body::materialize(&config.data)?;
-    let headers = body::headers(&config.headers)?;
-    let url = if config.get {
+    let body::Prepared {
+        data,
+        headers,
+        format,
+    } = body::prepare(config)?;
+    let url = if config.get && data.is_some() {
         body::with_query(&config.url, data.as_deref().unwrap_or_default())?
     } else {
         config.url.clone()
     };
     initialize()?;
+    // Apply profile validation on a sink handle before creating any output.
+    let mut handle = Handle::new(Output {
+        export: None,
+        body: Box::new(io::sink()),
+        header: None,
+        flush_chunks: false,
+        error: None,
+    })?;
+    if let Some(profile) = &config.impersonate {
+        crate::profiles::validate(profile)?;
+        handle.string("impersonate", profile)?;
+    }
     let export = config
         .export
         .map(|mode| Export::new(config, mode))
@@ -298,10 +320,9 @@ pub fn run(config: &Config) -> Result<(), CliError> {
         flush_chunks: config.no_buffer,
         error: None,
     };
-    let mut handle = Handle::new(output)?;
-    if let Some(profile) = &config.impersonate {
-        handle.string("impersonate", profile)?;
-    }
+    // Keep callback state at its original stable allocation.
+    *handle.output = output;
+
     let impersonating = config.impersonate.is_some();
     let decompress = config.compressed.unwrap_or(impersonating);
     if !impersonating {
@@ -311,10 +332,7 @@ pub fn run(config: &Config) -> Result<(), CliError> {
     handle.string("url", &url)?;
     for (name, value) in [
         ("follow", i64::from(config.follow)),
-        (
-            "include",
-            i64::from((config.include || config.head) && !json_export),
-        ),
+        ("include", i64::from(config.include && !json_export)),
         ("fail", i64::from(config.fail)),
         ("verbose", i64::from(config.verbose)),
         ("verify_peer", i64::from(!config.insecure)),
@@ -333,14 +351,14 @@ pub fn run(config: &Config) -> Result<(), CliError> {
             handle.number(name, value)?;
         }
     }
-    let env_ca = std::env::var("CURL_CA_BUNDLE")
+    let bundle_ca = std::env::var("CURL_CA_BUNDLE")
         .ok()
-        .filter(|s| !s.is_empty())
-        .or_else(|| {
-            std::env::var("SSL_CERT_FILE")
-                .ok()
-                .filter(|s| !s.is_empty())
-        });
+        .filter(|s| !s.is_empty());
+    let env_ca = bundle_ca.clone().or_else(|| {
+        std::env::var("SSL_CERT_FILE")
+            .ok()
+            .filter(|s| !s.is_empty())
+    });
     for (name, value) in [
         ("ca_cert", config.ca_cert.as_ref().or(env_ca.as_ref())),
         ("user_agent", config.user_agent.as_ref()),
@@ -362,9 +380,11 @@ pub fn run(config: &Config) -> Result<(), CliError> {
             handle.string("referer", initial)?;
         }
     }
-    if let Ok(path) = std::env::var("SSL_CERT_DIR") {
-        if !path.is_empty() {
-            handle.string("ca_path", &path)?;
+    if config.ca_cert.is_none() && bundle_ca.is_none() {
+        if let Ok(path) = std::env::var("SSL_CERT_DIR") {
+            if !path.is_empty() {
+                handle.string("ca_path", &path)?;
+            }
         }
     }
     if decompress {
@@ -403,6 +423,8 @@ pub fn run(config: &Config) -> Result<(), CliError> {
     } else {
         handle.number("get", 1)?;
     }
+    // ci_body uses COPYPOSTFIELDS; libcurl owns its copy during transfer.
+    drop(data);
     if config.head {
         handle.number("head", 1)?;
     }
@@ -411,7 +433,7 @@ pub fn run(config: &Config) -> Result<(), CliError> {
     }
 
     let mut code = unsafe { ci_perform(handle.raw.as_ptr()) };
-    if code == 0 {
+    if code == 0 && handle.info_number("http_code") != 304 {
         // A successful empty response must still create/truncate -o. Calling
         // write (not write_all) also opens a LazyFile for an empty slice.
         if let Err(e) = handle.output.body.write(&[]) {

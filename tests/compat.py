@@ -57,6 +57,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         code, headers = 200, []
         if self.path == "/bytes":
             payload = BINARY
+        elif self.path == "/not-modified":
+            code, payload = 304, b""
+        elif self.path == "/opaque":
+            headers.append(("Content-Type", 'text/plain; description="caf\xe9"'))
+            payload = b"ok"
         elif self.path == "/empty":
             code, payload = 204, b""
         elif self.path == "/gzip":
@@ -78,6 +83,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             headers.append(("Location", f"http://localhost:{self.server.server_port}/echo"))
         elif self.path == "/missing":
             code, payload = 404, b"missing resource\n"
+        elif self.path.endswith("/slow-credentials"):
+            payload = json.dumps({"user": self.headers.get("Authorization"),
+                                  "proxy": self.headers.get("Proxy-Authorization")}).encode()
+            self.server.credentials_seen.set()
+            self.server.credentials_release.wait(3)
         elif self.path == "/slow":
             time.sleep(0.2)
             payload = b"late"
@@ -111,6 +121,8 @@ class Compatibility(unittest.TestCase):
         cls.root = Path(cls.temp.name)
         cls.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         cls.server.daemon_threads = True
+        cls.server.credentials_seen = threading.Event()
+        cls.server.credentials_release = threading.Event()
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.url = f"http://127.0.0.1:{cls.server.server_port}"
@@ -138,7 +150,7 @@ class Compatibility(unittest.TestCase):
         env = {k: v for k, v in os.environ.items() if k.lower() not in
                {"http_proxy", "https_proxy", "all_proxy", "no_proxy", "curl_impersonate", "curl_impersonate_headers", "curl_ca_bundle", "ssl_cert_file", "ssl_cert_dir"}}
         env.update(environment or {})
-        return subprocess.run([engine, "-q", "-sS", *args], input=data, capture_output=True, env=env, timeout=10)
+        return subprocess.run([engine, "-q", "-sS", *args], input=data, capture_output=True, env=env, cwd=getattr(self, "root", None), timeout=10)
 
     def compare(self, args, *, data=None):
         # Compare curl's generic defaults explicitly; browser defaults have
@@ -148,6 +160,127 @@ class Compatibility(unittest.TestCase):
         self.assertEqual(actual.returncode, expected.returncode, actual.stderr)
         self.assertEqual(actual.stdout, expected.stdout, actual.stderr)
         return actual
+
+    def test_audit_not_modified_preserves_output(self):
+        for flags in ([], ["-i"], ["-I"], ["-I", "--no-include"]):
+            for exists in (False, True):
+                outcomes = []
+                for engine in (CLI, CURL):
+                    output = self.root / "not-modified.bin"
+                    output.unlink(missing_ok=True)
+                    if exists:
+                        output.write_bytes(b"KEEP")
+                    result = self.run_cli([*flags, "-o", str(output), self.url + "/not-modified"], engine=engine)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    outcomes.append(output.read_bytes() if output.exists() else None)
+                self.assertEqual(*outcomes, (flags, exists))
+
+    def test_audit_head_include_order(self):
+        for flags in (["-I", "--no-include"], ["--no-include", "-I"], ["-I", "--no-include", "-i"]):
+            with self.subTest(flags=flags):
+                self.compare([*flags, self.url + "/bytes"])
+        headers = self.root / "head-dump.headers"
+        result = self.compare(["-I", "--no-include", "-D", str(headers), self.url + "/bytes"])
+        self.assertEqual(result.stdout, b"")
+        self.assertTrue(headers.read_bytes().startswith(b"HTTP/1.1 200"))
+
+    def test_audit_empty_data_separators(self):
+        for flags in (["-d", "", "-d", "a=1"], ["-d", "a=1", "-d", ""],
+                      ["-d", "", "-d", "", "-d", "a=1"],
+                      ["--data-binary", "", "--data-binary", "a=1"]):
+            with self.subTest(flags=flags):
+                self.compare([*flags, self.url + "/echo"])
+        for url in ("/echo", "/echo?old=1", "/echo?", "/echo?old=?"):
+            self.compare(["-G", "-d", "", self.url + url])
+            self.compare(["-G", self.url + url])
+
+    def test_audit_stdin_readers_follow_argument_order(self):
+        pairs = [("-w", "@-"), ("-d", "@-"), ("-H", "@-"), ("--data-binary", "@-")]
+        for left, right in ((pairs[0], pairs[1]), (pairs[1], pairs[0]),
+                            (pairs[2], pairs[3]), (pairs[3], pairs[2])):
+            with self.subTest(left=left, right=right):
+                self.compare([*left, *right, self.url + "/echo"], data=b"X-Test: hello\n")
+        # Superseded write-out options still consume their input in curl.
+        self.compare(["-w", "@-", "-w", "done", "-d", "@-", self.url + "/echo"], data=b"consumed")
+
+    def test_audit_writeout_file_and_escapes(self):
+        source = self.root / "format.txt"
+        source.write_bytes(b"first\r\n%{http_code}\x00last\n" + rb"\n")
+        self.compare(["-o", os.devnull, "-w", "@" + str(source), self.url])
+        self.compare(["-o", os.devnull, "-w", "@-", self.url], data=source.read_bytes())
+        for value in (r"a\\b", r"a\\n", r"a\q", "trailing\\"):
+            self.compare(["-o", os.devnull, "-w", value, self.url])
+
+    def test_audit_writeout_preserves_opaque_metadata(self):
+        result = self.compare(["-o", os.devnull, "-w", "%{content_type}", self.url + "/opaque"])
+        self.assertEqual(result.stdout, b'text/plain; description="caf\xe9"')
+
+    def test_audit_invalid_profile_preserves_header_file(self):
+        for profile in ("not-a-profile", "okhttp4_android", "okhttp4", "OKHTTP4:no"):
+            for environment in (False, True):
+                with self.subTest(profile=profile, environment=environment):
+                    output = self.root / "keep.headers"
+                    output.write_bytes(b"KEEP")
+                    flags = [] if environment else ["--impersonate", profile]
+                    env = {"CURL_IMPERSONATE": profile} if environment else {}
+                    result = self.run_cli([*flags, "-D", str(output), self.url], environment=env)
+                    self.assertNotEqual(result.returncode, 0, (profile, environment))
+                    self.assertEqual(output.read_bytes(), b"KEEP")
+        # Native aliases must continue to work.
+        self.assertEqual(self.run_cli(["--impersonate", "safari26_0_1", self.url]).returncode, 0)
+
+    def test_audit_json_cookie_stdout_conflict(self):
+        result = self.run_cli(["--json-output", "-c", "-", self.url])
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, b"")
+        for mode in ("--txt", "--json-file"):
+            # These combinations do not share JSON stdout.
+            result = self.run_cli([mode, "-c", "-", self.url])
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_audit_ca_bundle_suppresses_env_directory(self):
+        other = self.root / "untrusted.pem"
+        subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+                        "-keyout", str(self.root / "untrusted.key"), "-out", str(other),
+                        "-subj", "/CN=untrusted"], check=True, capture_output=True)
+        directory = self.root / "ca-directory"
+        directory.mkdir(exist_ok=True)
+        hashed = subprocess.check_output(["openssl", "x509", "-noout", "-hash", "-in", str(self.cert)], text=True).strip()
+        (directory / (hashed + ".0")).write_bytes(self.cert.read_bytes())
+        for flags, extra in ((["--cacert", str(other)], {}), ([], {"CURL_CA_BUNDLE": str(other)})):
+            env = {"SSL_CERT_DIR": str(directory), **extra}
+            result = self.run_cli([*flags, self.tls_url], environment=env)
+            self.assertEqual(result.returncode, 60, result.stderr)
+        for env in ({"SSL_CERT_DIR": str(directory)}, {"SSL_CERT_FILE": str(self.cert)}):
+            result = self.run_cli([self.tls_url], environment=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipIf(CLI.endswith("chroot_cli.py"), "wrapper argv belongs to Python; direct bundle tests cover masking")
+    @unittest.skipUnless(os.uname().sysname in ("Linux", "Darwin"), "shipped Unix targets")
+    def test_audit_credentials_hidden_in_process_arguments(self):
+        for flags in (["--user", "dummy:DUMMY_USER", "--proxy-user", "dummy:DUMMY_PROXY"],
+                      ["--user=dummy:DUMMY_USER", "--proxy-user=dummy:DUMMY_PROXY"],
+                      ["-udummy:DUMMY_USER", "-Udummy:DUMMY_PROXY"],
+                      ["-su", "dummy:DUMMY_USER", "-sUdummy:DUMMY_PROXY"]):
+            with self.subTest(flags=flags):
+                self.server.credentials_seen.clear()
+                self.server.credentials_release.clear()
+                process = subprocess.Popen([CLI, "--noproxy", "", "--proxy", self.url, *flags,
+                                            "http://credential.invalid/slow-credentials"],
+                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                try:
+                    self.assertTrue(self.server.credentials_seen.wait(3), "request did not reach delayed fixture")
+                    self.assertIsNone(process.poll())
+                    observed = subprocess.check_output(["ps", "-p", str(process.pid), "-o", "command="])
+                    self.assertNotIn(b"DUMMY_USER", observed)
+                    self.assertNotIn(b"DUMMY_PROXY", observed)
+                finally:
+                    self.server.credentials_release.set()
+                    stdout, stderr = process.communicate(timeout=5)
+                self.assertEqual(process.returncode, 0, stderr)
+                credentials = json.loads(stdout)
+                self.assertEqual(base64.b64decode(credentials["user"].split()[1]), b"dummy:DUMMY_USER")
+                self.assertEqual(base64.b64decode(credentials["proxy"].split()[1]), b"dummy:DUMMY_PROXY")
 
     def test_get_binary_and_headers(self):
         self.compare([self.url + "/bytes"])

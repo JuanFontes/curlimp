@@ -18,8 +18,8 @@ pub fn materialize(parts: &[DataPart]) -> Result<Option<Vec<u8>>, CliError> {
         return Ok(None);
     }
     let mut result = Vec::new();
-    for (i, part) in parts.iter().enumerate() {
-        if i > 0 && part.kind != DataKind::Json {
+    for part in parts {
+        if !result.is_empty() && part.kind != DataKind::Json {
             result.push(b'&');
         }
         let mut bytes = if part.kind != DataKind::Raw && part.value.starts_with('@') {
@@ -59,13 +59,26 @@ pub fn headers(values: &[String]) -> Result<Vec<String>, CliError> {
 pub fn with_query(url: &str, body: &[u8]) -> Result<String, CliError> {
     let query = std::str::from_utf8(body)
         .map_err(|_| CliError::new(2, "--get query data must be UTF-8"))?;
-    if query.is_empty() {
-        return Ok(url.to_owned());
-    }
     let (base, fragment) = url
         .split_once('#')
         .map_or((url, None), |(u, f)| (u, Some(f)));
-    let separator = if base.ends_with('?') {
+    if query.is_empty()
+        && (!base.contains('?')
+            || base
+                .split_once('?')
+                .is_some_and(|(_, query)| query.is_empty()))
+    {
+        let mut result = base.strip_suffix('?').unwrap_or(base).to_owned();
+        if let Some(fragment) = fragment {
+            result.push('#');
+            result.push_str(fragment);
+        }
+        return Ok(result);
+    }
+    let separator = if base
+        .split_once('?')
+        .is_some_and(|(_, query)| query.is_empty())
+    {
         ""
     } else if base.contains('?') {
         "&"
@@ -78,4 +91,38 @@ pub fn with_query(url: &str, body: &[u8]) -> Result<String, CliError> {
         result.push_str(fragment);
     }
     Ok(result)
+}
+
+/// Resolve all input readers in argument order, including superseded write-outs.
+pub fn prepare(config: &crate::cli::Config) -> Result<Prepared, CliError> {
+    use crate::cli::Input;
+    let mut prepared = Prepared {
+        data: None,
+        headers: Vec::new(),
+        format: Vec::new(),
+    };
+    for input in &config.inputs {
+        match input {
+            Input::Data(index) => {
+                let part = &config.data[*index];
+                let bytes = materialize(std::slice::from_ref(part))?.unwrap_or_default();
+                let data = prepared.data.get_or_insert_with(Vec::new);
+                if !data.is_empty() && part.kind != DataKind::Json {
+                    data.push(b'&');
+                }
+                data.extend(bytes);
+            }
+            Input::Header(index) => prepared
+                .headers
+                .extend(headers(std::slice::from_ref(&config.headers[*index]))?),
+            Input::WriteOut(value) => prepared.format = crate::writeout::parse(value)?,
+        }
+    }
+    Ok(prepared)
+}
+
+pub struct Prepared {
+    pub data: Option<Vec<u8>>,
+    pub headers: Vec<String>,
+    pub format: Vec<crate::writeout::Token>,
 }
