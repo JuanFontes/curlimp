@@ -115,7 +115,7 @@ The launcher invokes the bundled dynamic loader with an explicit library path an
 
 Use a native ARM64 shell on an Apple Silicon Mac with Apple's Command Line Tools, Rust 1.85 or newer, CMake, Ninja, Go, Perl, patch, and make. The CI runner uses macOS 15 and Rust 1.90.0. Source downloads need network access. Python 3.12 or newer is used for packaging tests; OpenSSL and `nghttpd` from nghttp2 provide the TLS/HTTP2 fixtures.
 
-With Homebrew installed, build/test tools can be installed with `brew install cmake ninja go nghttp2 openssl@3`. Install Rust separately if needed. These are developer dependencies; the resulting download does not need Homebrew to run.
+With Homebrew installed, build/test tools can be installed with `brew install cmake ninja go nghttp2 openssl@3 python`. Install Rust separately if needed. Python 3 generates the native engine's built-in Public Suffix List and runs integration checks. These are developer dependencies; the resulting download does not need Homebrew to run.
 
 ```sh
 # Use a fresh absolute workspace outside the checkout.

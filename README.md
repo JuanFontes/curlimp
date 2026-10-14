@@ -14,7 +14,7 @@
 </p>
 
 <p>
-  <a href="https://hub.docker.com/r/juanfontes/curlimp/tags?name=0.3.0"><img src="https://img.shields.io/badge/Release-0.3.0-0F766E?style=flat-square" alt="Release 0.3.0"></a>
+  <a href="https://hub.docker.com/r/juanfontes/curlimp/tags?name=0.3.1"><img src="https://img.shields.io/badge/Release-0.3.1-0F766E?style=flat-square" alt="Release 0.3.1"></a>
   <img src="https://img.shields.io/badge/Profiles-39-0F766E?style=flat-square" alt="39 browser and client profiles">
   <img src="https://img.shields.io/badge/Linux-amd64_%7C_arm64-334155?style=flat-square&amp;logo=linux&amp;logoColor=white" alt="Linux amd64 and arm64">
   <a href="#platform-support"><img src="https://img.shields.io/badge/macOS-Apple_Silicon-334155?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="macOS Apple Silicon"></a>
@@ -58,7 +58,7 @@ docker run --rm juanfontes/curlimp:latest firefox147 \
 curlimp firefox147 --json-output -sS -i https://httpbin.org/status/418
 ```
 
-`latest` follows stable releases, but Docker reuses a locally cached image. Run `docker pull juanfontes/curlimp:latest` to update it. For scripts and CI, pin a version such as `0.3.0`, or a digest. [Updates and fixed versions →](https://juanfontes.github.io/curlimp/docs/docker/#updates-and-fixed-versions)
+`latest` follows stable releases, but Docker reuses a locally cached image. Run `docker pull juanfontes/curlimp:latest` to update it. For scripts and CI, pin a version such as `0.3.1`, or a digest. [Updates and fixed versions →](https://juanfontes.github.io/curlimp/docs/docker/#updates-and-fixed-versions)
 
 ### ⌨️ Use `curlimp` with Zsh autocomplete
 
@@ -136,7 +136,9 @@ Without `-i` or `-I`, exports contain the body only. `-i` adds headers; `-I` sel
 
 ## 🎭 Choose a browser
 
-Release `0.3.0` includes **39 browser and client profiles**, covering Chrome, Firefox, Safari, Edge, Tor Browser, and OkHttp.
+Release `0.3.1` includes **39 browser and client profiles**, covering Chrome, Firefox, Safari, Edge, Tor Browser, and OkHttp.
+
+This patch release updates libcurl to **8.23.0**, enables Public Suffix List cookie protection, and fixes automatic Referer handling. [Changelog →](CHANGELOG.md)
 
 ```sh
 # Firefox desktop.

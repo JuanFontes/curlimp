@@ -305,7 +305,7 @@ pub fn run(config: &Config) -> Result<(), CliError> {
     let impersonating = config.impersonate.is_some();
     let decompress = config.compressed.unwrap_or(impersonating);
     if !impersonating {
-        handle.string("user_agent", "curl/8.22.0")?;
+        handle.string("user_agent", "curl/8.23.0")?;
     }
 
     handle.string("url", &url)?;
@@ -344,7 +344,6 @@ pub fn run(config: &Config) -> Result<(), CliError> {
     for (name, value) in [
         ("ca_cert", config.ca_cert.as_ref().or(env_ca.as_ref())),
         ("user_agent", config.user_agent.as_ref()),
-        ("referer", config.referer.as_ref()),
         ("user", config.user.as_ref()),
         ("proxy", config.proxy.as_ref()),
         ("proxy_user", config.proxy_user.as_ref()),
@@ -353,6 +352,14 @@ pub fn run(config: &Config) -> Result<(), CliError> {
     ] {
         if let Some(value) = value {
             handle.string(name, value)?;
+        }
+    }
+    if let Some(referer) = &config.referer {
+        let initial = referer.strip_suffix(";auto");
+        handle.number("auto_referer", i64::from(initial.is_some()))?;
+        let initial = initial.unwrap_or(referer);
+        if !initial.is_empty() {
+            handle.string("referer", initial)?;
         }
     }
     if let Ok(path) = std::env::var("SSL_CERT_DIR") {

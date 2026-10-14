@@ -42,8 +42,10 @@ set(ZSTD_VERSION "1.5.7")
 set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
 set(CARES_VERSION "1.34.8")
 set(CARES_URL_HASH "SHA256=c222b6d681096f9444d2c4863d2c1174019e27cacca0a4a5c114d36dd7d7bf78")
-set(CURL_VERSION "curl-8_22_0")
-set(CURL_URL_HASH "SHA256=222c6b5c1f368ac63aed59bce2774eb5def9e8e67e46e800be182e684d2845a3")
+set(CURL_VERSION "curl-8_23_0")
+set(CURL_URL_HASH "SHA256=d0605d5883124ef5ae64c6d2b307e1417c482b362583b57491fdf37d9a99a792")
+set(LIBPSL_VERSION "0.23.3")
+set(LIBPSL_URL_HASH "SHA256=93941f85a1e7bd593fa94f299233cb5dfc91cd144fd9a78a6ceb75001c5b03be")
 
 set(CURL_IMPERSONATE_VERSION "" CACHE STRING
   "Override the curl-impersonate version (defaults to an exact clean Git tag or local)")
@@ -86,6 +88,7 @@ set(NGTCP2_URL "https://github.com/ngtcp2/ngtcp2/releases/download/v${NGTCP2_VER
 set(NGHTTP3_URL "https://github.com/ngtcp2/nghttp3/releases/download/v${NGHTTP3_VERSION}/nghttp3-${NGHTTP3_VERSION}.tar.bz2")
 set(CARES_URL "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz")
 set(CURL_URL "https://github.com/curl/curl/archive/${CURL_VERSION}.tar.gz")
+set(LIBPSL_URL "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz")
 
 set(_disable_boringssl_asm_default OFF)
 if(WIN32)
@@ -217,6 +220,27 @@ set(_shadow_avoid_cmake_args
 )
 
 list(JOIN _common_cmake_args " " _common_cmake_args_str)
+
+# Pin the built-in public/private suffix database with its source archive.
+# curl supplies normalized ASCII/ACE hosts; matching the built-in UTF-8/ACE
+# database does not require another runtime IDNA library or a host PSL file.
+ExternalProject_Add(libpsl
+  URL "${LIBPSL_URL}"
+  URL_HASH "${LIBPSL_URL_HASH}"
+  # Preserve release timestamps so Autotools does not regenerate shipped
+  # configure files with a maintainer-only Automake version.
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  SOURCE_DIR "${DEPS_SRC_DIR}/libpsl"
+  BINARY_DIR "${DEPS_BUILD_DIR}/libpsl"
+  INSTALL_DIR "${DEPS_INSTALL_DIR}"
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env "CC=${CMAKE_C_COMPILER}"
+    "CFLAGS=${CMAKE_C_FLAGS} -O2 -fPIC"
+    <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --libdir=<INSTALL_DIR>/lib
+    --disable-shared --enable-static --with-pic --disable-runtime
+    --enable-builtin --with-psl-distfile= --disable-gtk-doc --disable-nls
+  BUILD_COMMAND ${AUTOTOOLS_MAKE} -j${SUBJOBS}
+  INSTALL_COMMAND ${AUTOTOOLS_MAKE} install
+)
 
 # c-ares
 set(_cares_platform_args)
@@ -494,7 +518,7 @@ if(NOT CURL_CA_PATH STREQUAL "")
   list(APPEND _curl_ca_flags "-DCURL_CA_PATH=${CURL_CA_PATH}")
 endif()
 
-set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3 cares)
+set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3 cares libpsl)
 set(_curl_resolver_flags
   -DENABLE_ARES=ON
   -DENABLE_THREADED_RESOLVER=OFF
@@ -538,6 +562,8 @@ if(NOT WIN32)
     "-DNGTCP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
     "-DNGTCP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2.a"
     "-DNGTCP2_CRYPTO_BORINGSSL_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2_crypto_boringssl.a"
+    "-DLIBPSL_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DLIBPSL_LIBRARY=${DEPS_INSTALL_DIR}/lib/libpsl.a"
   )
 endif()
 if(APPLE)
@@ -638,9 +664,7 @@ ExternalProject_Add(curl
       -DUSE_PROXY_HTTP3=ON
       -DCURL_DISABLE_LDAP=ON
       -DCURL_DISABLE_LDAPS=ON
-      # XXX: psl should be enabled in the future:
-      # https://daniel.haxx.se/blog/2024/01/10/psl-in-curl/
-      -DCURL_USE_LIBPSL=OFF
+      -DCURL_USE_LIBPSL=ON
       -DUSE_LIBRTMP=OFF
       -DCURL_DISABLE_WEBSOCKETS=OFF
       -DUSE_ECH=ON

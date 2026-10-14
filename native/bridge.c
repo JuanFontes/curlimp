@@ -85,6 +85,7 @@ int ci_string(ci_handle *h, const char *name, const char *value) {
 int ci_long(ci_handle *h, const char *name, long value) {
 #define LONG(n, opt) if(!strcmp(name, n)) return (int)curl_easy_setopt(h->easy, opt, value)
   LONG("follow", CURLOPT_FOLLOWLOCATION);
+  LONG("auto_referer", CURLOPT_AUTOREFERER);
   LONG("max_redirects", CURLOPT_MAXREDIRS);
   LONG("include", CURLOPT_HEADER);
   LONG("head", CURLOPT_NOBODY);

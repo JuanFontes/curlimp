@@ -47,6 +47,7 @@ checkbuild:
 	echo "$$v" | grep -q proxy-HTTP3; \
 	if [ "$(CHECK_IDN)" = "1" ]; then echo "$$v" | grep -q IDN; fi; \
 	echo "$$v" | grep -q c-ares; \
+	echo "$$v" | grep -q PSL; \
 	echo "Build OK"
 .PHONY: checkbuild
 

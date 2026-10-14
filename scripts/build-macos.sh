@@ -12,7 +12,7 @@ case "$mode" in full|--engine-only) ;; *) echo 'Unknown build mode' >&2; exit 2 
 case "$workspace" in /*) ;; *) echo 'Workspace must be absolute' >&2; exit 2 ;; esac
 case "$workspace" in *,*) echo 'Build workspace cannot contain a comma' >&2; exit 2 ;; esac
 case "$jobs" in ''|*[!0-9]*|0) echo 'jobs must be a positive integer' >&2; exit 2 ;; esac
-for tool in cmake ninja clang cargo rustc go perl patch make; do
+for tool in cmake ninja clang cargo rustc go perl python3 patch make; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Required build tool not found: $tool" >&2; exit 2; }
 done
 prefix="$workspace/native"

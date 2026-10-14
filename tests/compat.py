@@ -14,6 +14,7 @@ import tempfile
 import threading
 import time
 import unittest
+from urllib.parse import urlsplit
 import zlib
 
 CLI = os.environ.get("CLI", str(Path(__file__).resolve().parents[1] / "target/debug/curlimp"))
@@ -152,7 +153,30 @@ class Compatibility(unittest.TestCase):
         self.compare([self.url + "/bytes"])
         self.compare(["-i", self.url + "/bytes"])
         self.compare(["-I", self.url + "/bytes"])
-        self.compare(["-H", "X-Test: one", "-H", "X-Test: two", "-e", "https://httpbin.org/get/", self.url + "/echo"])
+        self.compare(["-H", "X-Test: one", "-H", "X-Test: two", "-e", "https://httpbin.org/status/200", self.url + "/echo"])
+
+    def test_referer_auto_redirects(self):
+        for referer in (";auto", "https://httpbin.org/status/200;auto"):
+            with self.subTest(referer=referer):
+                result = self.compare(["-L", "-e", referer, self.url + "/redirect-post"])
+                self.assertEqual(json.loads(result.stdout)["headers"]["referer"],
+                                 [self.url + "/redirect-post"])
+        # No redirect: strip the modifier, preserve an explicit initial URL.
+        for referer, expected in (("", []), (";auto", []), ("https://httpbin.org/status/200;auto", ["https://httpbin.org/status/200"])):
+            result = self.compare(["-e", referer, self.url + "/echo"])
+            self.assertEqual(json.loads(result.stdout)["headers"]["referer"], expected)
+        # Modern curl recognizes only the suffix; older system curl versions
+        # also treat substrings such as ';automatic' as the modifier.
+        literal = "https://httpbin.org/status/200;automatic"
+        result = self.run_cli(["-e", literal, self.url + "/echo"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["headers"]["referer"], [literal])
+        # Last value wins, including disabling a previously enabled auto mode.
+        self.compare(["-L", "-e", ";auto", "-e", "https://httpbin.org/status/201", self.url + "/redirect-post"])
+        # libcurl must remove credentials and fragments from generated Referer.
+        credential_url = self.url.replace("http://", "http://audit:dummy@") + "/redirect-post#fragment"
+        result = self.compare(["-L", "-e", ";auto", credential_url])
+        self.assertEqual(json.loads(result.stdout)["headers"]["referer"], [self.url + "/redirect-post"])
 
     def test_request_data_and_method(self):
         self.compare(["-d", "a=1", "-d", "b=two", self.url + "/echo"])
@@ -404,7 +428,7 @@ class Compatibility(unittest.TestCase):
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
         with tempfile.TemporaryFile() as log:
-            process = subprocess.Popen([server, "-v", "-a", "127.0.0.1", "-d", str(self.root), str(port), str(self.root / "key.pem"), str(self.cert)], stdout=log, stderr=log)
+            process = subprocess.Popen([server, "-v", "--echo-upload", "-a", "127.0.0.1", "-d", str(self.root), str(port), str(self.root / "key.pem"), str(self.cert)], stdout=log, stderr=log)
             try:
                 deadline = time.monotonic() + 5
                 while True:
@@ -416,9 +440,20 @@ class Compatibility(unittest.TestCase):
                         if time.monotonic() >= deadline:
                             self.fail("nghttpd did not start")
                         time.sleep(0.02)
-                result = self.run_cli(["--cacert", str(self.cert), "--http2", "-w", "%{http_version}", f"https://127.0.0.1:{port}/resource.bin"])
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(result.stdout, BINARY + b"2")
+                catalog = self.run_cli(["--list-profiles"])
+                self.assertEqual(catalog.returncode, 0, catalog.stderr)
+                # A native engine update must keep every profile functional
+                # through TLS and HTTP/2, including sending request bodies.
+                # This is not a comparison against real-browser fingerprints.
+                for profile in catalog.stdout.decode().splitlines():
+                    for upload in (False, True):
+                        with self.subTest(profile=profile, upload=upload):
+                            args = ["--impersonate", profile, "--cacert", str(self.cert), "--http2", "-w", "%{http_version}"]
+                            if upload:
+                                args += ["--data-binary", "@-"]
+                            result = self.run_cli([*args, f"https://127.0.0.1:{port}/resource.bin"], data=BINARY if upload else None)
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            self.assertEqual(result.stdout, BINARY + b"2")
             finally:
                 process.terminate()
                 process.wait(timeout=5)
@@ -431,6 +466,50 @@ class Compatibility(unittest.TestCase):
             result = self.run_cli([*args, self.url + "/bytes"])
             self.assertEqual(result.returncode, 2, (args, result.stderr))
             self.assertEqual(result.stdout, b"")
+
+
+class CookiePolicy(unittest.TestCase):
+    def test_public_suffix_cookies_are_rejected_and_valid_domains_work(self):
+        class Proxy(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *_):
+                pass
+
+            def do_GET(self):
+                initial = urlsplit(self.path).path == "/start"
+                payload = json.dumps({"cookie": self.headers.get("Cookie")}).encode()
+                self.send_response(302 if initial else 200)
+                if initial:
+                    self.send_header("Set-Cookie", f"audit=dummy; Domain={self.server.cookie_domain}; Path=/")
+                    self.send_header("Location", f"http://{self.server.target}/end")
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.wfile.write(payload)
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Proxy)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        # All named hosts are handled by this local proxy, never resolved or contacted.
+        cases = [
+            ("shop.example.co.uk", "api.other.co.uk", "co.uk", None),
+            ("alice.github.io", "bob.github.io", "github.io", None),
+            ("a.example.xn--55qx5d.cn", "b.other.xn--55qx5d.cn", "xn--55qx5d.cn", None),
+            ("a.example.co.uk", "b.example.co.uk", "example.co.uk", "audit=dummy"),
+            ("a.city.kawasaki.jp", "b.city.kawasaki.jp", "city.kawasaki.jp", "audit=dummy"),
+        ]
+        for profile in (["--no-impersonate"], ["--impersonate", "chrome150"]):
+            for source, target, domain, expected in cases:
+                with self.subTest(profile=profile, domain=domain):
+                    server.cookie_domain, server.target = domain, target
+                    result = Compatibility.run_cli(self, [*profile, "-b", "", "-L", "--noproxy", "",
+                        "--proxy", f"http://127.0.0.1:{server.server_port}", "--max-time", "3",
+                        f"http://{source}/start"])
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(json.loads(result.stdout)["cookie"], expected)
 
 
 if __name__ == "__main__":

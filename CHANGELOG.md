@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.1 — 2026-10-14
+
+### Security and native engine
+
+- Update the patched libcurl engine to 8.23.0, incorporating upstream security fixes, including the HTTP/2 upload use-after-free fix (CVE-2026-92392). Browser profile definitions remain unchanged.
+- Build libpsl 0.23.3 with its pinned, built-in Public Suffix List. Cookies scoped to public or private suffixes are rejected; legitimate parent-domain cookies remain supported. No runtime database download is required.
+- Require PSL support in native feature checks and include libpsl, Chromium DAFSA, and Public Suffix List source notices in distributed packages.
+
+### Fixes
+
+- Honor the `;auto` suffix in `-e` / `--referer`: preserve an optional initial Referer and update it when following redirects. Repeated options use the last value.
+- Rebuild the C bridge and relink the CLI when native headers, libraries, or provenance change at the same installation path.
+
+### Validation and maintenance
+
+- Add regression coverage for automatic Referer handling, public/private/internationalized suffix cookies, valid domain exceptions, and native build invalidation.
+- Cache native CI builds while rerunning runtime tests, and deploy documentation only after matching release downloads and Docker platforms are published.
+
+The release retains 39 profiles, the `chrome150` default, and the existing CLI scope. Browser fingerprint equivalence and HTTP/3 end-to-end behavior remain unverified.
+
 ## 0.3.0 — 2026-10-11
 
 ### Features
