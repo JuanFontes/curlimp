@@ -5,15 +5,20 @@ pub enum Token {
     Variable(String),
 }
 
-pub fn parse(format: &str) -> Result<Vec<Token>, CliError> {
-    let source = if let Some(path) = format.strip_prefix('@') {
+/// Read each source when its option is encountered, even when later replaced.
+pub fn read(format: &str) -> Result<Vec<u8>, CliError> {
+    Ok(if let Some(path) = format.strip_prefix('@') {
         let mut bytes = read_source(path)?;
         bytes.retain(|b| !matches!(b, b'\r' | b'\n' | 0));
         bytes
     } else {
         format.as_bytes().to_vec()
-    };
-    let mut chars = source.into_iter().peekable();
+    })
+}
+
+/// Validate only the selected format after all ordered input sources are read.
+pub fn parse(source: &[u8]) -> Result<Vec<Token>, CliError> {
+    let mut chars = source.iter().copied().peekable();
     let mut tokens = Vec::new();
     let mut text = Vec::new();
     while let Some(ch) = chars.next() {

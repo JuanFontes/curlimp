@@ -203,6 +203,17 @@ class Compatibility(unittest.TestCase):
         # Superseded write-out options still consume their input in curl.
         self.compare(["-w", "@-", "-w", "done", "-d", "@-", self.url + "/echo"], data=b"consumed")
 
+    def test_audit_superseded_writeout_formats_do_not_fail(self):
+        source = self.root / "discarded-format.txt"
+        source.write_bytes(b"%{discarded}\n")
+        for discarded in ("%{discarded}", "%{unfinished", "@" + str(source)):
+            with self.subTest(discarded=discarded):
+                result = self.compare(["-o", os.devnull, "-w", discarded, "-w", "FINAL", self.url])
+                self.assertEqual(result.stdout, b"FINAL")
+        # Invalid superseded stdin is still consumed before the body reader.
+        self.compare(["-w", "@-", "-w", "FINAL", "-d", "@-", self.url + "/echo"],
+                     data=b"%{discarded}")
+
     def test_audit_writeout_file_and_escapes(self):
         source = self.root / "format.txt"
         source.write_bytes(b"first\r\n%{http_code}\x00last\n" + rb"\n")

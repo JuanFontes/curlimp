@@ -101,6 +101,7 @@ pub fn prepare(config: &crate::cli::Config) -> Result<Prepared, CliError> {
         headers: Vec::new(),
         format: Vec::new(),
     };
+    let mut write_out = Vec::new();
     for input in &config.inputs {
         match input {
             Input::Data(index) => {
@@ -115,9 +116,10 @@ pub fn prepare(config: &crate::cli::Config) -> Result<Prepared, CliError> {
             Input::Header(index) => prepared
                 .headers
                 .extend(headers(std::slice::from_ref(&config.headers[*index]))?),
-            Input::WriteOut(value) => prepared.format = crate::writeout::parse(value)?,
+            Input::WriteOut(value) => write_out = crate::writeout::read(value)?,
         }
     }
+    prepared.format = crate::writeout::parse(&write_out)?;
     Ok(prepared)
 }
 
