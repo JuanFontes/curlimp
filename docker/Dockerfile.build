@@ -34,7 +34,7 @@ RUN mkdir -p /out/native/lib /out/licenses \
     && cp /opt/native/LICENSE* /out/licenses/
 
 FROM builder AS test-tools
-RUN apt-get update && apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh \
+RUN apt-get update && apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh make \
     && rm -rf /var/lib/apt/lists/*
 
 FROM test-tools AS test
