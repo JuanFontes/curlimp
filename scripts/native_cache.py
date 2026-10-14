@@ -68,7 +68,7 @@ def toolchain_identity():
     commands = [['sw_vers', '-buildVersion'], ['xcrun', 'clang', '--version'],
                 ['xcrun', '--show-sdk-version'], ['xcrun', '--show-sdk-path'],
                 ['cmake', '--version'], ['ninja', '--version'], ['go', 'version'],
-                ['make', '--version'], ['perl', '-V'], ['patch', '--version']]
+                ['make', '--version'], ['perl', '-V'], ['python3', '--version'], ['patch', '--version']]
     return dict(platform=platform.system(), architecture=platform.machine(),
                 deployment_target=os.environ.get('MACOSX_DEPLOYMENT_TARGET', '13.0'),
                 tools=[subprocess.check_output(command, text=True).strip() for command in commands])

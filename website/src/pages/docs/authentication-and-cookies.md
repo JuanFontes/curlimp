@@ -60,3 +60,9 @@ curlimp -sS -b cookies.txt -c cookies.txt \
 ```
 
 Cookie options do not execute a website's JavaScript, create local storage, or reproduce a browser authentication flow. See [compatibility](../compatibility/) for scope.
+
+## Public Suffix List protection
+
+The engine includes libpsl and a pinned, built-in Public Suffix List. With the cookie engine enabled (`-b` with a cookie file, `-b ''`, or `-c`), response cookies scoped to public or private suffixes such as `co.uk` or `github.io` are rejected. Cookies scoped to a valid parent domain still work across its subdomains.
+
+The database is bundled at build time and refreshed through releases; requests do not download it. Explicit cookie strings passed with `-b 'name=value'` or `-H 'Cookie: ...'` are caller-provided headers, not server cookies checked against this database.

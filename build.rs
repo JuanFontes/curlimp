@@ -11,6 +11,9 @@ fn main() {
     let root = root
         .canonicalize()
         .expect("native release directory is missing");
+    // Cargo scans directories recursively: include transitive headers, versioned
+    // libraries and provenance when an engine is replaced at the same prefix.
+    println!("cargo:rerun-if-changed={}", root.display());
     assert!(
         root.join("include/curl/curl.h").is_file(),
         "native headers are missing"

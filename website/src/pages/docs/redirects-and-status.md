@@ -7,6 +7,18 @@ section: Usage
 lead: 'Inspect redirects and HTTP errors without confusing response status with process exit status.'
 ---
 
+## Automatic Referer on redirects
+
+Append `;auto` to `-e` / `--referer` to use the previous URL as the Referer when following a redirect:
+
+```sh
+curlimp -sS -L --referer ';auto' https://httpbin.org/status/301
+curlimp -sS -L --referer 'https://httpbin.org/status/200;auto' \
+  https://httpbin.org/status/301
+```
+
+The first form sends no initial Referer. The second starts with the supplied URL. After a redirect, libcurl generates the Referer from the previous URL, excluding its credentials and fragment. Without `-L`, no redirects are followed. If the option is repeated, the last value wins; a value without `;auto` disables automatic updates. The status endpoint must provide a `Location` header for a redirect to occur.
+
 ## Print only the HTTP status
 
 Discard the body with `-o /dev/null`, then print the response code with `-w`:

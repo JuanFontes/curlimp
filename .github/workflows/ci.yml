@@ -154,6 +154,8 @@ jobs:
           echo "$(brew --prefix nghttp2)/bin" >> "$GITHUB_PATH"
       - name: Test macOS packager with real Mach-O fixtures
         run: python3 tests/macos_package.py
+      - name: Test native header and library rebuild tracking
+        run: python3 tests/build_tracking.py
       - name: Fingerprint native inputs and toolchain
         id: native-key
         run: |
