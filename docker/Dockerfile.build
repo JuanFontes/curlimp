@@ -38,6 +38,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 openssl
     && rm -rf /var/lib/apt/lists/*
 
 FROM test-tools AS test
+COPY vendor/engine/Makefile /native-check.mk
+RUN --network=none LD_LIBRARY_PATH=/opt/native/lib make -f /native-check.mk checkbuild CURL_BIN=/opt/native/bin/curl-impersonate
 COPY tests tests
 COPY scripts/fetch-verified.sh scripts/prepare-engine.sh scripts/
 RUN --network=none python3 tests/vendor_engine.py && python3 tests/source_download.py

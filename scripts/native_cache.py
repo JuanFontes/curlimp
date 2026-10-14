@@ -12,7 +12,7 @@ import sys
 MANIFEST = '.native-cache.json'
 INPUTS = ['engine.lock', 'vendor/engine', 'scripts/prepare-engine.sh',
           'scripts/build-macos.sh', 'scripts/native_cache.py']
-REQUIRED = ['include/curl/curl.h', 'lib/libcurl-impersonate.dylib',
+REQUIRED = ['bin/curl-impersonate', 'include/curl/curl.h', 'lib/libcurl-impersonate.dylib',
             'engine-build.txt', 'engine-origin.md', 'engine-inputs.sha256']
 
 

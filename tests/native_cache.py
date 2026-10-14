@@ -20,7 +20,7 @@ class NativeCacheTests(unittest.TestCase):
         (self.repo / 'vendor/engine').mkdir(parents=True)
         (self.repo / 'vendor/engine/input').write_bytes(b'engine source')
         self.prefix = self.root / 'native'
-        for name in ['include/curl/curl.h', 'lib/libcurl-impersonate.4.dylib',
+        for name in ['bin/curl-impersonate', 'include/curl/curl.h', 'lib/libcurl-impersonate.4.dylib',
                      'LICENSE', 'engine-build.txt', 'engine-origin.md', 'engine-inputs.sha256']:
             path = self.prefix / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -78,6 +78,11 @@ class NativeCacheTests(unittest.TestCase):
     def test_rejects_symlinks_outside_prefix(self):
         (self.root / 'external').write_text('outside')
         (self.prefix / 'escape').symlink_to('../external')
+        with self.assertRaises(ValueError):
+            cache.seal(self.prefix, self.key())
+
+    def test_requires_native_executable_for_uncached_feature_checks(self):
+        (self.prefix / 'bin/curl-impersonate').unlink()
         with self.assertRaises(ValueError):
             cache.seal(self.prefix, self.key())
 
