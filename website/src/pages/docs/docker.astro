@@ -42,13 +42,14 @@ import {
   </p>
   <h2 id="updates-and-fixed-versions">Updates and fixed versions</h2>
   <p>
-    The examples use <code>latest</code>, which follows the newest stable
+    For everyday use, the examples use <code>{image}</code> without a tag.
+    Docker defaults to <code>latest</code>, which follows the newest stable
     release after both Linux architectures pass validation. Release candidates
     never replace it. Versioned tags stay tied to their release.
   </p>
   <p>
-    Docker reuses a local image by default. <code>latest</code> does not mean
-    that every invocation downloads an update. Refresh the image used by your
+    Omitting the tag does not mean that every invocation downloads an update.
+    Docker reuses a local image by default. Refresh the image used by your
     command with:
   </p>
   <CodeBlock code={`docker pull ${image}`} />

@@ -36,7 +36,7 @@ Every JSON object also includes `schema_version`, `status`, and `exit_code`. A s
 Run the image directly to print one JSON object with headers and body:
 
 ```sh
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --json-output --impersonate firefox147 -sS -i https://httpbin.org/status/418
 ```
 
@@ -66,17 +66,17 @@ Mount a writable host directory at `/work`, the image's working directory. On Un
 ```sh
 # Save headers and the complete body to an automatic TXT filename.
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  juanfontes/curlimp:latest \
+  juanfontes/curlimp \
   --txt -sS -i https://httpbin.org/status/418
 
 # Save the same response as a JSON object.
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  juanfontes/curlimp:latest \
+  juanfontes/curlimp \
   --json-file -sS -i https://httpbin.org/status/418
 
 # Save only headers from a HEAD request.
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  juanfontes/curlimp:latest \
+  juanfontes/curlimp \
   --json-file -sS -I https://httpbin.org/status/200
 ```
 

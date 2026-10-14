@@ -19,9 +19,9 @@ const download = (platform: string) =>
   </p>
   <CodeBlock code={`docker run --rm ${image} --version`} />
   <p>
-    This uses <code>latest</code>, which follows the newest stable release.
-    Versioned tags stay tied to their release; choose a version or digest for a
-    fixed dependency. See{' '}
+    No tag is needed for everyday use. Docker defaults to <code>latest</code>,
+    which follows the newest stable release. Versioned tags stay tied to their
+    release; choose a version or digest for a fixed dependency. See{' '}
     <a href={`${docHref('docker')}#updates-and-fixed-versions`}>
       updates and fixed versions
     </a>{' '}
@@ -132,8 +132,9 @@ const download = (platform: string) =>
   <p>
     For native downloads, download and verify the new complete bundle. Updating
     it also refreshes its bundled dependencies and certificates. For a fixed
-    Docker version, change the tag in your command when ready to upgrade. For{' '}
-    <code>latest</code>, refresh the locally cached image with:
+    Docker version, change the tag in your command when ready to upgrade. If you
+    use <code>{image}</code> without a tag, refresh the locally cached image
+    with:
   </p>
   <CodeBlock code={`docker pull ${image}`} />
   <p>

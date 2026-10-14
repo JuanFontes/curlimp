@@ -18,7 +18,7 @@ The Rust CLI calls the bundled libcurl-impersonate engine directly. The image in
 ## 🚀 Your first request
 
 ```sh
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -I https://httpbin.org/status/200
 ```
 
@@ -27,16 +27,16 @@ Docker downloads the image automatically if needed and selects the matching CPU 
 Choose another browser by putting its exact profile name before the URL:
 
 ```sh
-docker run --rm juanfontes/curlimp:latest firefox147 \
+docker run --rm juanfontes/curlimp firefox147 \
   -sS -I https://httpbin.org/status/200
 
-docker run --rm juanfontes/curlimp:latest safari2601 \
+docker run --rm juanfontes/curlimp safari2601 \
   --json-output -sS -i https://httpbin.org/status/418
 ```
 
 Flags may appear before or after the profile. `--impersonate PROFILE` still works; the last profile selection wins. Use a complete profile ID, not a prefix.
 
-- **`latest`** is used in the examples and follows the newest validated stable release. Release candidates never replace it.
+- **`juanfontes/curlimp`** is all you need for everyday use. With no tag, Docker defaults to **`latest`**, which follows the newest validated stable release. Release candidates never replace it.
 - **`0.3.1`** is the versioned tag for this release; versioned tags remain unchanged.
 - Both tags support **`linux/amd64` and `linux/arm64`**.
 
@@ -65,16 +65,16 @@ Open a new terminal, type `curlimp ` and press Tab to list profiles. Any prefix 
 
 ## 🔄 Updates and fixed versions
 
-Docker uses an image already stored locally unless you ask it to pull. The `latest` tag does not automatically refresh on every run. Update your local image with:
+Omitting the tag does not automatically refresh an image already stored locally. Docker reuses its cached image unless you ask it to pull. Update your local image with:
 
 ```sh
-docker pull juanfontes/curlimp:latest
+docker pull juanfontes/curlimp
 ```
 
 To check the registry on every invocation, add `--pull=always` before the image name. Each invocation then needs registry access:
 
 ```sh
-docker run --rm --pull=always juanfontes/curlimp:latest \
+docker run --rm --pull=always juanfontes/curlimp \
   -sS -I https://httpbin.org/status/200
 ```
 
@@ -85,7 +85,7 @@ docker run --rm juanfontes/curlimp:0.3.1 \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```
 
-Use a digest when immutable selection is required. For local development, the root Dockerfile uses `curlimp:local`; it will be pinned to the published multiarch digest at release time. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
+Use a digest when immutable selection is required. The root Dockerfile is pinned to a published multiarch runtime digest. For local development, override it with `--build-arg RUNTIME_IMAGE=curlimp:local`. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
 
 ## 💾 Export TXT or JSON responses
 
@@ -93,17 +93,17 @@ Use a digest when immutable selection is required. For local development, the ro
 
 ```sh
 # JSON in the terminal: headers and complete body.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --json-output --impersonate firefox147 -sS -i https://httpbin.org/status/418
 
 # TXT on the host: mount the current directory and use your Unix UID/GID.
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  juanfontes/curlimp:latest \
+  juanfontes/curlimp \
   --txt -sS -i https://httpbin.org/status/418
 
 # JSON file on the host: HEAD response headers only.
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
-  juanfontes/curlimp:latest \
+  juanfontes/curlimp \
   --json-file -sS -I https://httpbin.org/status/200
 ```
 
@@ -125,23 +125,23 @@ See the **[full export guide](https://juanfontes.github.io/curlimp/docs/response
 
 ```sh
 # Chrome 150 is the default: no profile flag needed.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -I https://httpbin.org/status/200
 
 # Firefox desktop.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --impersonate firefox147 -sS -I https://httpbin.org/status/200
 
 # Safari desktop.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --impersonate safari2601 -sS -I https://httpbin.org/status/200
 
 # Chrome on Android.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --impersonate chrome131_android -sS -I https://httpbin.org/status/200
 
 # Safari on iOS.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --impersonate safari260_ios -sS -I https://httpbin.org/status/200
 ```
 
@@ -163,7 +163,7 @@ A profile configures TLS ClientHello characteristics, protocol negotiation, HTTP
 Profiles are versioned presets, not an automatically refreshed browser list. Selecting a Tor Browser profile does not route requests through Tor. `okhttp4_android` is a client preset whose bundled default headers include a desktop Safari User-Agent; inspect or override those headers before use.
 
 ```sh
-docker run --rm juanfontes/curlimp:latest --list-profiles
+docker run --rm juanfontes/curlimp --list-profiles
 ```
 
 The command validates the catalog against the installed engine. See the [catalog](https://github.com/JuanFontes/curlimp/blob/v0.3.1/src/profiles.txt) and [native profile settings](https://github.com/JuanFontes/curlimp/blob/v0.3.1/vendor/engine/patches/curl.patch).
@@ -175,10 +175,10 @@ Priority: **last positional profile / `--impersonate` / `--no-impersonate` selec
 ```sh
 # Supply an environment default to the container.
 docker run --rm -e CURL_IMPERSONATE=firefox147 \
-  juanfontes/curlimp:latest -sS -I https://httpbin.org/status/200
+  juanfontes/curlimp -sS -I https://httpbin.org/status/200
 
 # Disable browser profiles, including any environment default.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --no-impersonate -sS -I https://httpbin.org/status/200
 ```
 
@@ -188,10 +188,10 @@ docker run --rm juanfontes/curlimp:latest \
 
 ```sh
 # Profile decoding is enabled; this particular response has an empty body.
-docker run --rm juanfontes/curlimp:latest -sS -I https://httpbin.org/status/200
+docker run --rm juanfontes/curlimp -sS -I https://httpbin.org/status/200
 
 # Disable content decoding (this status fixture has no compressed body).
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   --no-compressed -sS https://httpbin.org/status/200 > response.body
 ```
 
@@ -202,7 +202,7 @@ The status URL above demonstrates option syntax; it is not a compressed-payload 
 ### Print only the status code
 
 ```sh
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```
 
@@ -212,11 +212,11 @@ Replace the URL with `https://httpbin.org/status/301` or `https://httpbin.org/st
 
 ```sh
 # Make a HEAD request.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -I https://httpbin.org/status/200
 
 # Keep GET semantics, print headers, and discard the body.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -D - -o /dev/null https://httpbin.org/status/200
 ```
 
@@ -226,11 +226,11 @@ docker run --rm juanfontes/curlimp:latest \
 
 ```sh
 # Body only.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS https://httpbin.org/status/418
 
 # Include response headers before the body.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -i https://httpbin.org/status/418
 ```
 
@@ -238,12 +238,12 @@ docker run --rm juanfontes/curlimp:latest \
 
 ```sh
 # Follow redirects and show the final status.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -L -o /dev/null -w '%{http_code}\n' \
   https://httpbin.org/status/301
 
 # Return exit code 22 for this HTTP 502 while retaining its response body.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS --fail-with-body https://httpbin.org/status/502
 ```
 
@@ -253,11 +253,11 @@ These examples demonstrate request syntax. The status fixture does not validate 
 
 ```sh
 # Demonstrate Basic auth syntax; this fixture does not validate credentials.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -u demo:password https://httpbin.org/status/200
 
 # Add a header and send JSON; --json selects POST.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -H 'X-Request-Source: terminal' \
   --json '{"hello":"world"}' https://httpbin.org/status/201
 ```
@@ -266,23 +266,23 @@ docker run --rm juanfontes/curlimp:latest \
 
 ```sh
 # Mount the current directory so the response survives --rm.
-docker run --rm -v "$PWD:/work" juanfontes/curlimp:latest \
+docker run --rm -v "$PWD:/work" juanfontes/curlimp \
   -sS -o /work/response.body https://httpbin.org/status/418
 
 # Keep stdin open with Docker's -i; send the bytes unchanged.
 printf '{"hello":"world"}' | docker run --rm -i \
-  juanfontes/curlimp:latest -sS \
+  juanfontes/curlimp -sS \
   -H 'Content-Type: application/json' --data-binary @- https://httpbin.org/status/201
 ```
 
 ### Diagnose a request
 
 ```sh
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -v --connect-timeout 10 --max-time 30 https://httpbin.org/status/200
 
-docker run --rm juanfontes/curlimp:latest --help
-docker run --rm juanfontes/curlimp:latest --version
+docker run --rm juanfontes/curlimp --help
+docker run --rm juanfontes/curlimp --version
 ```
 
 Verbose output goes to stderr; response bodies go to stdout or `-o`. The runtime image is minimal and has no shell. Use CLI flags directly instead of overriding the entrypoint with `sh`.
@@ -294,37 +294,37 @@ Pass the request options directly after the image name:
 
 ```sh
 # Success, no-content, not-found, rate-limit, and unavailable responses.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/201
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/204
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/404
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/429
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/503
 
 # Follow redirects, print the header chain, and discard the body.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -L --max-redirs 5 -D - -o /dev/null https://httpbin.org/status/302
 
 # Distinguish HTTP status from the transfer exit status.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w 'http=%{http_code} exit=%{exitcode}\n' https://httpbin.org/status/404
 
 # Send JSON with an explicit method (the fixture does not echo it).
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -i -X PUT --json '{"enabled":true}' https://httpbin.org/status/200
 
 # Send form fields or a cookie.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -i -d 'name=demo' -d 'mode=test' https://httpbin.org/status/201
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -I -b 'theme=dark' https://httpbin.org/status/200
 
 # Inspect the negotiated protocol and total duration.
-docker run --rm juanfontes/curlimp:latest \
+docker run --rm juanfontes/curlimp \
   -sS -o /dev/null -w 'http=%{http_version} seconds=%{time_total}\n' https://httpbin.org/status/200
 ```
 

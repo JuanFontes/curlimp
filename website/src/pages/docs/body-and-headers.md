@@ -58,7 +58,7 @@ With redirects, output can contain multiple header blocks. Avoid piping this com
 For Docker, mount a host directory when using file options:
 
 ```sh
-docker run --rm -v "$PWD:/work" juanfontes/curlimp:latest \
+docker run --rm -v "$PWD:/work" juanfontes/curlimp \
   -sS -D /work/response.headers -o /work/response.body \
   https://httpbin.org/status/418
 ```

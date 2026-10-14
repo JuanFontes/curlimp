@@ -45,7 +45,7 @@ The status fixture does not echo the cookies. A real application decides whether
 Use a host-mounted path so a jar survives a disposable Docker container:
 
 ```sh
-docker run --rm -v "$PWD:/work" juanfontes/curlimp:latest \
+docker run --rm -v "$PWD:/work" juanfontes/curlimp \
   -sS -b /work/cookies.txt -c /work/cookies.txt \
   https://httpbin.org/status/200
 ```
