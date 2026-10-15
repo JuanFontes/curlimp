@@ -301,6 +301,8 @@ Release CI tests Linux amd64, Linux arm64, and macOS Apple Silicon bundles, incl
 
 Bug reports, documentation improvements, and reproducible compatibility cases are welcome. [Open an issue](https://github.com/JuanFontes/curlimp/issues) with your platform, Curlimp version, a minimal command, and the expected and actual behavior. Remove credentials and private response data before sharing logs.
 
+For suspected vulnerabilities, use the private reporting channel in [SECURITY.md](SECURITY.md). It also describes dependency monitoring, review checks, and their coverage limits.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development, focused tests, engine maintenance, and release validation. The [source build guide](https://juanfontes.github.io/curlimp/docs/building/) explains how to build the Rust CLI and native engine. The root Dockerfile uses a published runtime; maintainers compile from source with `docker/Dockerfile.build`.
 
 <a id="licenses"></a>

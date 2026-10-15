@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Read-only native dependency inventory and upstream security triage.
 
-Release discovery covers every native pin. Security feeds cover curl and nghttp2
-only; other dependencies require manual upstream security review. Version updates
+Release discovery covers every native pin. Security feeds cover curl's official
+feed and published GitHub advisories in the native projects' repositories. Empty
+feeds do not establish safety; libidn2 and Git-only applicability need manual review. Version updates
 are triage candidates, never instructions to upgrade a fingerprint-sensitive pin.
 Curl applicability uses the official feed's explicit affected-version lists,
 including all affected entries; ranges are recorded but are not inferred. Missing
 or empty lists fail as unknown. Git-only advisories cannot establish applicability
-of this patched source tree. nghttp2 uses simple numeric comparator ranges only.
+of this patched source tree. GitHub ranges support numeric comparators, exact
+versions, and inclusive hyphen ranges. Unknown input fails closed.
 """
 import argparse
 from datetime import datetime, timezone
@@ -122,9 +124,12 @@ def in_range(pin, expression):
     if not isinstance(expression, str) or not expression.strip():
         raise ValueError('Missing vulnerable version range')
     current = version(pin)
+    hyphen = re.fullmatch(r'\s*v?(\d+(?:\.\d+)+)\s+-\s+v?(\d+(?:\.\d+)+)\s*', expression)
+    if hyphen:
+        return version(hyphen[1]) <= current <= version(hyphen[2])
     matches = []
     for part in expression.split(','):
-        match = re.fullmatch(r'\s*(<=|>=|<|>|=)?\s*(\d+(?:\.\d+)+)\s*', part)
+        match = re.fullmatch(r'\s*(<=|>=|<|>|=)?\s*v?(\d+(?:\.\d+)+)\s*', part)
         if not match:
             raise ValueError('Unsupported vulnerable version range')
         op, bound = match[1] or '=', version(match[2])
@@ -193,42 +198,87 @@ def advisories(data, token):
                 findings.append({'dependency': 'curl', 'id': identifier,
                                  'status': 'needs-triage', 'source': curl_url})
         data['curl']['security_status'] = 'checked explicit affected-version lists'
+        data['curl']['security_source'] = curl_url
         data['curl']['advisory_count'] = len(feed)
     except (SourceError, ValueError, KeyError, TypeError) as error:
         data['curl']['security_status'] = 'unknown'
         errors.append(f'curl advisories: {error}')
-    base = 'https://api.github.com/repos/nghttp2/nghttp2/security-advisories'
+    for name, entry in data.items():
+        if name == 'curl':
+            continue
+        if name == 'libidn2':
+            entry['security_status'] = 'manual-review: no integrated advisory feed'
+            entry['security_source'] = 'https://www.gnu.org/software/libidn/'
+            continue
+        source_findings, source_errors = github_advisories(name, entry, token)
+        findings.extend(source_findings)
+        errors.extend(source_errors)
+    return findings, errors
+
+
+def github_advisories(name, entry, token):
+    findings, errors = [], []
+    base = f'https://api.github.com/repos/{REPOS[name]}/security-advisories'
+    entry['security_source'] = base
+    count = 0
     try:
-        count = 0
         for page in range(1, 101):
             feed = fetch_json(f'{base}?per_page=100&page={page}', token)
             if not isinstance(feed, list):
-                raise ValueError('Expected nghttp2 advisory array')
+                raise ValueError('Expected upstream advisory array')
             for item in feed:
+                if not isinstance(item, dict):
+                    raise ValueError('Expected upstream advisory object')
                 identifier = item['ghsa_id']
                 if not isinstance(identifier, str) or not identifier:
-                    raise ValueError('Missing nghttp2 advisory ID')
-                vulnerabilities = item['vulnerabilities']
-                if not isinstance(vulnerabilities, list) or not vulnerabilities:
-                    raise ValueError('Missing nghttp2 vulnerable ranges')
-                # Evaluate every range even if one already matches, so unsupported
-                # additional ranges cannot silently produce a clean result.
-                matches = [in_range(data['nghttp2']['pin'], v['vulnerable_version_range'])
-                           for v in vulnerabilities]
-                status = nghttp2_status(identifier, any(matches))
-                findings.append({'dependency': 'nghttp2', 'id': identifier, 'status': status,
-                                 'source': item['html_url'],
-                                 **({'backport_commit': BACKPORT_COMMIT} if status == 'backported' else {})})
+                    raise ValueError('Missing upstream advisory ID')
+                finding = {'dependency': name, 'id': identifier, 'status': 'unknown',
+                           'source': f'https://github.com/{REPOS[name]}/security/advisories/{identifier}',
+                           'severity': item.get('severity', 'unknown')}
+                findings.append(finding)
                 count += 1
+                try:
+                    if item.get('withdrawn_at'):
+                        finding['status'] = 'withdrawn'
+                        continue
+                    vulnerabilities = item['vulnerabilities']
+                    if not isinstance(vulnerabilities, list) or not vulnerabilities:
+                        raise ValueError('Missing upstream vulnerable ranges')
+                    matches = []
+                    for vulnerability in vulnerabilities:
+                        if not isinstance(vulnerability, dict):
+                            raise ValueError('Expected vulnerability object')
+                        package = vulnerability.get('package', {})
+                        expected = {'cares': 'c-ares'}.get(name, name)
+                        if not isinstance(package, dict) or package.get('name', '') not in ('', expected):
+                            raise ValueError('Unrecognized upstream package identity')
+                        matches.append(in_range(entry['pin'], vulnerability['vulnerable_version_range']))
+                    finding['ranges'] = [v['vulnerable_version_range'] for v in vulnerabilities]
+                    finding['patched_versions'] = [v.get('patched_versions') for v in vulnerabilities]
+                    # Do not infer a safe range from patched_versions: advisories may
+                    # describe several release branches or contain conflicting metadata.
+                    status = ('needs-triage' if any(matches) else 'not-affected-by-range')
+                    if name == 'nghttp2':
+                        status = nghttp2_status(identifier, any(matches))
+                    finding['status'] = status
+                    if status == 'backported':
+                        finding['backport_commit'] = BACKPORT_COMMIT
+                except (ValueError, KeyError, TypeError) as error:
+                    finding['error'] = str(error)
+                    errors.append(f'{name} advisories: {identifier}: {error}')
             if len(feed) < 100:
                 break
         else:
-            raise ValueError('nghttp2 advisory pagination limit reached')
-        data['nghttp2']['security_status'] = 'checked numeric upstream vulnerable ranges'
-        data['nghttp2']['advisory_count'] = count
+            raise ValueError('Upstream advisory pagination limit reached')
+        entry['security_status'] = ('checked published upstream advisory ranges' if count
+                                    else 'no-published-advisories: not evidence of safety')
+        if name == 'boringssl' and not count:
+            entry['security_status'] += '; manual-review: Git commit applicability'
     except (SourceError, ValueError, KeyError, TypeError) as error:
-        data['nghttp2']['security_status'] = 'unknown'
-        errors.append(f'nghttp2 advisories: {error}')
+        errors.append(f'{name} advisories: {error}')
+    if errors:
+        entry['security_status'] = 'unknown'
+    entry['advisory_count'] = count
     return findings, errors
 
 
@@ -238,21 +288,25 @@ def markdown(report):
     for name, entry in report['dependencies'].items():
         lines.append(f"| {name} | {entry['pin']} | {entry.get('upstream', 'unknown')} | {entry['release_status']} |")
     lines += ['', 'nghttp2 stays pinned for legacy HTTP/2 priorities. All updates need manual review.', '',
-              'Security coverage: curl explicit affected-version lists and nghttp2 numeric ranges only.',
-              'Other dependencies, patch interactions, and Git-only applicability require manual security review.', '']
-    for name in ('curl', 'nghttp2'):
-        entry = report['dependencies'][name]
+              'Security coverage: curl explicit affected-version lists and published upstream GitHub advisories.',
+              'Empty feeds, libidn2, Git-only applicability, and patch interactions require manual review.',
+              'This report is not a security certification.', '',
+              f"Advisories requiring triage: {report['triage_required']}", '']
+    for name, entry in report['dependencies'].items():
         lines.append(f"- {name}: {entry['security_status']} ({entry.get('advisory_count', 'unknown')} advisories)")
     for finding in report['advisories']:
-        lines.append(f"- [{finding['id']}]({finding['source']}): {finding['status']}" +
+        lines.append(f"- {finding['dependency']} [{finding['id']}]({finding['source']}): {finding['status']}" +
                      (f"; backport `{finding['backport_commit']}`" if 'backport_commit' in finding else ''))
+        if finding.get('ranges'):
+            lines.append(f"  - Affected ranges: {finding['ranges']}; upstream patched versions: {finding['patched_versions']}")
     if report['errors']:
         lines += ['', 'Source failures — result is incomplete, not clean:', '']
         lines += ['- ' + error for error in report['errors']]
     lines += ['', 'Primary release/advisory sources:', '']
     lines += [f"- {name}: {entry['release_source']}" for name, entry in report['dependencies'].items()]
-    lines += ['- curl: https://curl.se/docs/security.html and https://curl.se/docs/vuln.json',
-              '- nghttp2: https://github.com/nghttp2/nghttp2/security/advisories', '']
+    lines += [f"- {name} security: {entry.get('security_source', 'unknown')}"
+              for name, entry in report['dependencies'].items()]
+    lines.append('')
     return '\n'.join(lines)
 
 
@@ -265,13 +319,14 @@ def main():
     errors = releases(data, token)
     findings, security_errors = advisories(data, token)
     report = {'generated_at': datetime.now(timezone.utc).isoformat(), 'dependencies': data,
-              'advisories': findings, 'errors': errors + security_errors}
+              'advisories': findings, 'errors': errors + security_errors,
+              'triage_required': sum(item['status'] in ('needs-triage', 'unknown') for item in findings)}
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     result = markdown(report)
     (args.output / 'report.md').write_text(result)
     print(result)
-    return 1 if report['errors'] else 0
+    return 1 if report['errors'] else (2 if report['triage_required'] else 0)
 
 
 if __name__ == '__main__':
