@@ -11,10 +11,10 @@ launcher=$(readlink -f -- "$0") || fail 'Cannot resolve the launcher path.'
 bundle=$(dirname -- "$launcher")
 case "$bundle" in *:*|*';'*) fail 'The package path cannot contain a colon or semicolon.' ;; esac
 runtime=$bundle/runtime
-# Respect explicit trust settings; CLI --cacert still takes precedence.
+# Preserve explicit trust settings; the fallback file must still allow SSL_CERT_DIR.
 if [ -z "${CURL_CA_BUNDLE:-}${SSL_CERT_FILE:-}" ]; then
-  CURL_CA_BUNDLE=$runtime/etc/ssl/certs/ca-certificates.crt
-  export CURL_CA_BUNDLE
+  SSL_CERT_FILE=$runtime/etc/ssl/certs/ca-certificates.crt
+  export SSL_CERT_FILE
 fi
 exec "$runtime/@LOADER@" \
   --library-path "$runtime/opt/native/lib:$runtime/@LIBDIR@" \

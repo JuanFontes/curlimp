@@ -109,7 +109,7 @@ An explicit `--version` override remains available for packaging experiments; of
 
 The packager checks key ELF architectures, required runtime files and license notices, converts rootfs-absolute links to relative links, and rejects dangling or escaping links. It refuses to overwrite an archive. Archive timestamps and ownership are normalized; this does not make the underlying source build reproducible. `release.json` records the supplied source revision, so build from a clean checkout of that revision.
 
-The launcher invokes the bundled dynamic loader with an explicit library path and preserves arguments, streams, working directory and exit status. It supplies the bundled CA file only when neither `CURL_CA_BUNDLE` nor `SSL_CERT_FILE` is nonempty (a directory-only `SSL_CERT_DIR` override still uses the bundled CA file); CLI `--cacert` still takes precedence. System DNS/NSS configuration remains host-controlled. Ubuntu 24.04 is the native CI validation target; do not infer support for all Linux distributions.
+The launcher invokes the bundled dynamic loader with an explicit library path and preserves arguments, streams, working directory and exit status. It supplies the bundled CA file through `SSL_CERT_FILE` only when neither `CURL_CA_BUNDLE` nor `SSL_CERT_FILE` is nonempty, so a directory-only `SSL_CERT_DIR` setting combines with the bundled CA file. Explicit `CURL_CA_BUNDLE` and CLI `--cacert` retain their precedence and suppress the environment directory. System DNS/NSS configuration remains host-controlled. Ubuntu 24.04 is the native CI validation target; do not infer support for all Linux distributions.
 
 ### Build on macOS Apple Silicon
 

@@ -156,7 +156,8 @@ class ReleasePackage(unittest.TestCase):
         loader = bundle / 'runtime' / LOADERS[self.arch]
         loader.write_text('#!/usr/bin/env python3\nimport json, os, sys\n'
                           'sys.stderr.write(json.dumps({"args":sys.argv[1:],"cwd":os.getcwd(),'
-                          '"ca":os.environ.get("CURL_CA_BUNDLE"),"cert":os.environ.get("SSL_CERT_FILE")}))\n'
+                          '"ca":os.environ.get("CURL_CA_BUNDLE"),"cert":os.environ.get("SSL_CERT_FILE"),'
+                          '"dir":os.environ.get("SSL_CERT_DIR")}))\n'
                           'sys.stdout.buffer.write(sys.stdin.buffer.read())\nsys.exit(23)\n')
         link = self.base / 'my-cli'
         link.symlink_to(bundle / 'curlimp')
@@ -164,7 +165,9 @@ class ReleasePackage(unittest.TestCase):
                if key not in ('CURL_CA_BUNDLE', 'SSL_CERT_FILE', 'SSL_CERT_DIR')}
         env['PATH'] = str(self.base) + ':' + env['PATH']
         for custom in ({}, {'CURL_CA_BUNDLE': '/custom CA'}, {'SSL_CERT_FILE': '/other CA'},
-                       {'SSL_CERT_DIR': '/cert dir'}):
+                       {'SSL_CERT_DIR': '/cert dir'},
+                       {'CURL_CA_BUNDLE': '', 'SSL_CERT_FILE': '', 'SSL_CERT_DIR': '/cert dir'},
+                       {'CURL_CA_BUNDLE': '/custom CA', 'SSL_CERT_FILE': '/other CA', 'SSL_CERT_DIR': '/cert dir'}):
             result = subprocess.run(['my-cli', '-H', 'Name: two words', '--data-binary', '@-'],
                                     input=b'\0\xff\r\n', capture_output=True, cwd=self.base, env=env | custom)
             self.assertEqual(result.returncode, 23, result.stderr)
@@ -172,9 +175,11 @@ class ReleasePackage(unittest.TestCase):
             observed = json.loads(result.stderr)
             self.assertEqual(observed['args'][-4:], ['-H', 'Name: two words', '--data-binary', '@-'])
             self.assertEqual(observed['cwd'], str(self.base))
-            self.assertEqual(observed['ca'], custom.get('CURL_CA_BUNDLE') if ('CURL_CA_BUNDLE' in custom or 'SSL_CERT_FILE' in custom) else
-                             str(bundle / 'runtime/etc/ssl/certs/ca-certificates.crt'))
-            self.assertEqual(observed['cert'], custom.get('SSL_CERT_FILE'))
+            self.assertEqual(observed['ca'], custom.get('CURL_CA_BUNDLE'))
+            expected_cert = custom.get('SSL_CERT_FILE') if custom.get('CURL_CA_BUNDLE') or custom.get('SSL_CERT_FILE') else \
+                str(bundle / 'runtime/etc/ssl/certs/ca-certificates.crt')
+            self.assertEqual(observed['cert'], expected_cert)
+            self.assertEqual(observed['dir'], custom.get('SSL_CERT_DIR'))
         for separator in (':', ';'):
             moved = bundle.with_name('unsupported' + separator + 'path')
             bundle.rename(moved)
