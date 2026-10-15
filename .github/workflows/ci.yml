@@ -27,6 +27,8 @@ on:
       - '.shellcheckrc'
       - 'scripts/check-quality.py'
       - '.github/workflows/site-build.yml'
+      # PR orchestration is exercised by the required PR gate before merge.
+      - '.github/workflows/pull-request.yml'
   workflow_call:
   workflow_dispatch:
     inputs:
