@@ -124,12 +124,20 @@ def in_range(pin, expression):
     if not isinstance(expression, str) or not expression.strip():
         raise ValueError('Missing vulnerable version range')
     current = version(pin)
-    hyphen = re.fullmatch(r'\s*v?(\d+(?:\.\d+)+)\s+-\s+v?(\d+(?:\.\d+)+)\s*', expression)
+    if len(current) != 3:
+        raise ValueError('Advisory comparison requires a three-component numeric pin')
+    # Partial versions have ecosystem-specific wildcard semantics. Do not turn
+    # an unsupported partial upper bound into a false exclusion of a full pin.
+    numeric = r'\d+\.\d+\.\d+'
+    hyphen = re.fullmatch(rf'\s*v?({numeric})\s+-\s+v?({numeric})\s*', expression)
     if hyphen:
-        return version(hyphen[1]) <= current <= version(hyphen[2])
+        lower, upper = version(hyphen[1]), version(hyphen[2])
+        if lower > upper:
+            raise ValueError('Reversed vulnerable version range')
+        return lower <= current <= upper
     matches = []
     for part in expression.split(','):
-        match = re.fullmatch(r'\s*(<=|>=|<|>|=)?\s*v?(\d+(?:\.\d+)+)\s*', part)
+        match = re.fullmatch(rf'\s*(<=|>=|<|>|=)?\s*v?({numeric})\s*', part)
         if not match:
             raise ValueError('Unsupported vulnerable version range')
         op, bound = match[1] or '=', version(match[2])

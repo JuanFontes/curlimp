@@ -68,6 +68,14 @@ class DependencyReportTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 m.in_range('1.2.3', expression)
 
+    def test_partial_or_reversed_ranges_fail_closed_instead_of_excluding_versions(self):
+        for expression in ('1.20.0 - 1.22', '1.32.3 - 1.34', '<= 1.34',
+                           '1.34', '>= 1.2.3.4', '1.34.8 - 1.32.3'):
+            with self.subTest(expression=expression), self.assertRaises(ValueError):
+                m.in_range('1.34.8', expression)
+        with self.assertRaises(ValueError):
+            m.in_range('1.34', '<= 1.34.8')
+
     def test_patch_status_requires_exact_digest_and_known_id(self):
         with patch.object(m, 'backport_present', return_value=True):
             self.assertEqual(m.nghttp2_status('GHSA-6933-cjhr-5qg6', True), 'backported')
