@@ -32,10 +32,9 @@ const download = (platform: string) =>
     supported by this formula.
   </p>
   <p>
-    Homebrew does not edit your shell configuration or register completions in a
-    terminal tab that is already open. If your Zsh setup loads Homebrew
-    completions, open a new tab after installation. To keep using the current
-    tab, register Curlimp with{' '}
+    Homebrew prints a completion activation tip after installation. It does not
+    edit your shell configuration or register completions in a terminal tab that
+    is already open. To keep using the current tab, register Curlimp with{' '}
     <code>source &lt;(curlimp --completions zsh)</code>
     after completion has been initialized. For the full setup and selection
     menu, follow the{' '}

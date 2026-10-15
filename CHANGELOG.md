@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2 — 2026-10-15
+
+### First-run experience
+
+- Show the help guide on stdout with exit code 0 when `curlimp` is run without arguments, including the default Docker entrypoint. Nonempty commands missing a URL still return exit code 2.
+- Put copyable examples near the top of `--help`: body and headers, browser selection, redirects, HTTP status, named files, response exports, and parallel requests. Explain empty status bodies and default HTTP-error handling.
+- Add a Homebrew post-install tip for activating Zsh profile completion in the current session. The tap installs completion as before and does not edit shell configuration files.
+- Update the README, Docker Hub guide, and website CLI reference. The website reads examples directly from the CLI help.
+
+The native engine, dependencies, and 38 browser profiles are unchanged.
+
 ## 0.5.1 — 2026-10-15
 
 ### Security

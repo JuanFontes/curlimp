@@ -91,6 +91,6 @@ Call the native command directly, or pin the Docker image version:
 ```sh
 curlimp -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 
-docker run --rm juanfontes/curlimp:0.5.1 \
+docker run --rm juanfontes/curlimp:0.5.2 \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```

@@ -9,9 +9,9 @@ lead: 'Type a little or a lot of a profile name. Tab matches everything you have
 
 ## Homebrew installations
 
-`brew install juanfontes/tap/curlimp` installs the completion file in Homebrew's Zsh directory. If your shell already loads Homebrew completions, just start a new terminal.
+`brew install juanfontes/tap/curlimp` installs the completion file in Homebrew's Zsh directory and prints a tip for activating it in the current session. Future sessions load the file automatically if your shell already loads Homebrew completions.
 
-**Did you install Curlimp in the same terminal tab you are using now?** An existing Zsh session does not automatically register the newly installed file. Open a new tab, or run this in the current session if completion is already initialized:
+**Did you install Curlimp in the same terminal tab you are using now?** An existing Zsh session does not automatically register the newly installed file. Run this in the current session if completion is already initialized:
 
 ```zsh
 source <(curlimp --completions zsh)

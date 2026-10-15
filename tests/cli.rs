@@ -73,12 +73,48 @@ fn unsupported_or_incomplete_invocations_fail_before_transfer() {
 
 #[test]
 fn informational_commands_do_not_require_a_url() {
+    assert_eq!(parse(vec![]).unwrap(), Action::Help);
     assert_eq!(parse(vec!["--help".into()]).unwrap(), Action::Help);
     assert_eq!(parse(vec!["--version".into()]).unwrap(), Action::Version);
     assert_eq!(
         parse(vec!["--list-profiles".into()]).unwrap(),
         Action::Profiles
     );
+}
+
+#[test]
+fn no_arguments_print_help_to_stdout_without_initializing_a_transfer() {
+    for args in [vec![], vec!["--help"], vec!["-h"]] {
+        let result = std::process::Command::new(env!("CARGO_BIN_EXE_curlimp"))
+            .args(args)
+            .env("CURL_IMPERSONATE", "invalid-profile")
+            .output()
+            .unwrap();
+        assert!(result.status.success(), "{:?}", result.stderr);
+        assert!(result.stderr.is_empty());
+        let help = String::from_utf8(result.stdout).unwrap();
+        assert!(help.contains("Usage: curlimp"));
+        assert!(help.contains("Examples:"));
+        assert!(help.contains("curlimp -I https://httpbin.org/status/200"));
+    }
+}
+
+#[test]
+fn nonempty_commands_without_a_url_still_fail() {
+    for args in [
+        vec!["-I"],
+        vec!["--"],
+        vec!["--json-output"],
+        vec!["--impersonate", "firefox147"],
+        vec!["firefox147"],
+    ] {
+        assert_eq!(
+            parse(args.into_iter().map(String::from).collect())
+                .unwrap_err()
+                .code,
+            2
+        );
+    }
 }
 
 #[test]

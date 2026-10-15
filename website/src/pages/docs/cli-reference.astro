@@ -2,10 +2,16 @@
 import Doc from '../../layouts/Doc.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
 import { cliHelp, version, docHref } from '../../lib/site';
+const examples = cliHelp
+  .slice(
+    cliHelp.indexOf('Examples:'),
+    cliHelp.indexOf('\nBrowser impersonation'),
+  )
+  .trim();
 const options = cliHelp
   .slice(
     cliHelp.indexOf('Requests:'),
-    cliHelp.indexOf('\nCurlimp supports a subset'),
+    cliHelp.indexOf('\nCurlimp supports multiple'),
   )
   .trim();
 ---
@@ -30,6 +36,21 @@ const options = cliHelp
     <a href={docHref('docker')}>Docker</a>, put the same request options after
     the image name.
   </p>
+  <h2>Built-in examples</h2>
+  <p>
+    Run <code>curlimp</code> without arguments, <code>curlimp --help</code>, or{' '}
+    <code>curlimp -h</code> to print the same guide and exit successfully. An
+    incomplete request such as <code>curlimp -I</code> still returns an error
+    because it needs a URL.
+  </p>
+  <p>
+    These examples come directly from the executable's help. With Docker,
+    replace <code>curlimp</code> with{' '}
+    <code>docker run --rm juanfontes/curlimp</code>. File exports need a{' '}
+    <a href={docHref('docker')}>mounted directory</a> to remain on your
+    computer.
+  </p>
+  <CodeBlock code={examples} lang="text" label="Help examples" />
   <h2>Supported options</h2>
   <p>
     This reference is read directly from the CLI help source during the site

@@ -1,5 +1,43 @@
 Curlimp — browser impersonation with a Rust CLI and a modified libcurl engine
 Usage: curlimp [options] [PROFILE] <URL>... [options]
+Run curlimp without arguments, or use --help, to show this guide.
+
+Examples:
+  Print the response body (Chrome 150 by default):
+    curlimp https://httpbin.org/status/418
+
+  Print only headers with a HEAD request:
+    curlimp -I https://httpbin.org/status/200
+
+  Use Firefox and print headers followed by the body:
+    curlimp firefox147 -i https://httpbin.org/status/418
+
+  Follow redirects:
+    curlimp -L https://httpbin.org/status/301
+
+  Print only the HTTP status code:
+    curlimp -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/502
+
+  Save headers and body to a named file:
+    curlimp -i -o response.txt https://httpbin.org/status/418
+
+  Print response JSON in the terminal:
+    curlimp --json-output -i https://httpbin.org/status/418
+
+  Save headers to a timestamped JSON file in the current directory:
+    curlimp --json-file -I https://httpbin.org/status/200
+  Use --txt instead for a timestamped text file.
+
+  Request multiple URLs concurrently, with one output per URL:
+    curlimp -Z -I https://httpbin.org/status/200 https://httpbin.org/status/502 -o first.txt -o second.txt
+
+  Discover browser profiles:
+    curlimp --list-profiles
+
+  /status/200 has an empty body; /status/418 provides a sample body.
+  HTTP error responses are returned normally unless --fail or --fail-with-body is used.
+  More examples: https://juanfontes.github.io/curlimp/docs/
+
 Browser impersonation is enabled by default with chrome150.
 An exact profile name before the first URL is shorthand for --impersonate PROFILE.
 Flags may appear before or after the profile. Use --url HOST or http://HOST
