@@ -141,7 +141,7 @@ profile (--no-impersonate), decoding is opt-in via --compressed.
 
 Export files with --txt or --json-file in the current directory. Without -i/-I,
 exports contain the body; -i adds headers and -I selects headers only. JSON
-exports buffer at most 64 MiB; TXT streams. --json DATA still sends request JSON.
+exports use private temporary storage with a 64 MiB limit per response; TXT streams. --json DATA still sends request JSON.
 See https://juanfontes.github.io/curlimp/docs/response-exports/ for details.
 
 Keep this entire directory together. The executable launcher uses the bundled
@@ -158,8 +158,10 @@ SSL_CERT_DIR, or use --cacert, to supply custom trust settings. System network
 configuration (including DNS and proxies) still applies. Refresh the package
 when its libraries or certificates need updating.
 
-This CLI supports a subset of curl flags and one URL per invocation. Use --help
-and --list-profiles. Profiles do not establish equivalence to real browsers.
+This CLI supports multiple URLs with one common request configuration and a
+subset of curl flags. Transfers run sequentially unless --parallel is enabled.
+Pair -o destinations with URLs by position, or use --json-output for an ordered
+array. JSON needs writable temporary storage. Use --help and --list-profiles. Profiles do not establish equivalence to real browsers.
 Full usage and limitations: https://github.com/JuanFontes/curlimp#readme
 
 Zsh users: initialize compinit, then source <(curlimp --completions zsh) with
