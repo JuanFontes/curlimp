@@ -10,8 +10,52 @@ const download = (platform: string) =>
   title="Installation and downloads"
   slug="installation"
   section="Getting started"
-  description="Install curlimp with Docker or download Linux amd64, Linux arm64 and experimental macOS Apple Silicon bundles. Verify checksums before extraction."
+  description="Install Curlimp with Homebrew, Docker, or native downloads for Linux amd64, Linux arm64 and experimental macOS Apple Silicon. Upgrade and uninstall safely."
 >
+  <h2 id="homebrew">Homebrew</h2>
+  <p>
+    With <a href="https://brew.sh/">Homebrew</a> installed, use the{' '}
+    <a href="https://github.com/JuanFontes/homebrew-tap">
+      project-maintained tap
+    </a>{' '}
+    on macOS Apple Silicon or Linux amd64/arm64:
+  </p>
+  <CodeBlock
+    code={`brew install juanfontes/tap/curlimp\ncurlimp --version\ncurlimp -sS -I https://httpbin.org/status/200`}
+  />
+  <p>
+    This command adds the tap and downloads the corresponding native release,
+    with its SHA-256 checksum checked by Homebrew. It keeps the bundled
+    libraries together and installs Zsh profile completion. No compiler or
+    separate tap command is needed. macOS support remains experimental, requires
+    macOS 13 or later, and is tested on macOS 15. Intel Macs and Windows are not
+    supported by this formula.
+  </p>
+  <p>
+    Homebrew does not edit your shell configuration. If your Zsh setup already
+    loads Homebrew completions, start a new shell; otherwise, follow the{' '}
+    <a href={`${docHref('completion')}#homebrew-installations`}>
+      Homebrew completion instructions
+    </a>
+    .
+  </p>
+  <h3>Upgrade a Homebrew installation</h3>
+  <CodeBlock code={`brew update\nbrew upgrade curlimp`} />
+  <p>
+    The tap checks for new stable releases hourly and updates only after its
+    package tests pass. Scheduled jobs may be delayed; updates are not
+    immediate.
+  </p>
+  <h3>Uninstall a Homebrew installation</h3>
+  <CodeBlock
+    code={`brew uninstall curlimp\n\n# Optional: remove the package source too.\nbrew untap juanfontes/tap`}
+  />
+  <p>
+    Uninstall removes the package, command link, and managed completion file. It
+    leaves your saved responses, shell configuration, and Homebrew download
+    cache alone. Installation and removal are tested on all three supported
+    architectures in the tap's CI.
+  </p>
   <h2>Run the published Docker image</h2>
   <p>
     No compiler or repository checkout is required. Docker selects the matching
@@ -116,7 +160,8 @@ const download = (platform: string) =>
   </p>
   <h2>Put the native command on your PATH</h2>
   <p>
-    Move the complete extracted directory to a permanent location and symlink
+    Homebrew links the command automatically. For a manually downloaded bundle,
+    move the complete extracted directory to a permanent location and symlink
     its launcher into a directory on your <code>PATH</code>. Do not separate the
     executable from its libraries. The guides use this native
     <code>curlimp</code> command directly.

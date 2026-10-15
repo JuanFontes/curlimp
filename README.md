@@ -5,13 +5,14 @@
 <p><strong>Browser profiles. Familiar curl commands. Responses you can keep.</strong></p>
 
 <p>Send HTTP requests with browser-specific TLS and HTTP settings.<br>
-Run with Docker or a native download, explore responses, and save what matters.</p>
+Run with Docker, Homebrew, or a native download, explore responses, and save what matters.</p>
 
 <p>
   <a href="Cargo.toml"><img src="https://img.shields.io/badge/Rust-CLI-E57324?style=for-the-badge&amp;logo=rust&amp;logoColor=white" alt="Rust CLI"></a>
   <a href="native/bridge.c"><img src="https://img.shields.io/badge/C-Native_bridge-526D82?style=for-the-badge&amp;logo=c&amp;logoColor=white" alt="C native bridge"></a>
   <a href="vendor/engine/"><img src="https://img.shields.io/badge/libcurl-Engine-073551?style=for-the-badge&amp;logo=curl&amp;logoColor=white" alt="Modified libcurl engine"></a>
   <a href="https://hub.docker.com/r/juanfontes/curlimp"><img src="https://img.shields.io/badge/Docker-Ready_to_run-2496ED?style=for-the-badge&amp;logo=docker&amp;logoColor=white" alt="Ready-to-run Docker image"></a>
+  <a href="https://github.com/JuanFontes/homebrew-tap"><img src="https://img.shields.io/badge/Homebrew-Install-FBB040?style=for-the-badge&amp;logo=homebrew&amp;logoColor=black" alt="Install with Homebrew"></a>
 </p>
 
 <p>
@@ -57,6 +58,15 @@ The project brings those profiles into an everyday terminal workflow: inspect he
 <a id="use-the-published-docker-image"></a>
 
 ## 🚀 Quick start
+
+**Homebrew** on macOS Apple Silicon or Linux amd64/arm64:
+
+```sh
+brew install juanfontes/tap/curlimp
+curlimp -sS -I https://httpbin.org/status/200
+```
+
+This installs a verified native release and its Zsh completion file. macOS support remains experimental. See [Homebrew setup, upgrades, and uninstall](https://juanfontes.github.io/curlimp/docs/installation/#homebrew).
 
 With Docker installed, make your first request:
 
@@ -253,7 +263,9 @@ macOS packages target macOS 13.0 and are signed ad hoc, not notarized. Validatio
 
 ### ⌨️ Enable profile completion in Zsh
 
-With the native `curlimp` executable on your `PATH`, add this to `~/.zshrc`:
+**Installed with Homebrew?** The completion file is already installed. If your Zsh setup loads Homebrew completions, open a new terminal and use Tab. Otherwise, follow the [Homebrew completion setup](https://juanfontes.github.io/curlimp/docs/completion/#homebrew-installations). No shell files are changed by the installer.
+
+**Using a downloaded native bundle?** With `curlimp` on your `PATH`, add this to `~/.zshrc`:
 
 ```zsh
 # Skip these first two lines if your shell already initializes completion.

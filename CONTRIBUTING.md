@@ -195,6 +195,12 @@ The release workflow intentionally stops if the version already exists. If publi
 
 After a successful release workflow, the Pages workflow rebuilds and checks the site. Production deployment requires the current latest stable GitHub release to match `Cargo.toml`, all three native archives and `SHA256SUMS`, and an active Docker version tag for Linux amd64/arm64. Until those downloads exist, the previous public site stays online. The gate runs before building a production deployment and again immediately before deploying it. API failures fail the publication check instead of bypassing it. See [website/README.md](website/README.md#publish).
 
+### Homebrew distribution
+
+The separate personal repository [JuanFontes/homebrew-tap](https://github.com/JuanFontes/homebrew-tap) packages the published native archives; no additional engine build is needed. Its hourly **Update Curlimp** workflow reads this repository's latest stable release, verifies all three archives against GitHub asset digests and `SHA256SUMS`, and tests installation, usage, completion, and uninstall on the supported native architectures before committing the exact tested formula. It needs no write credential for this repository.
+
+After a release, check the tap's update workflow. Schedules can be delayed or disabled by GitHub after inactivity; a maintainer can trigger it manually, including a **verify_current** check without changing versions. Missing assets, checksum failures, failed package tests, and concurrent changes to the tap stop publication. Keep release archives immutable and publish a new version for changed binaries. See the [tap maintenance guide](https://github.com/JuanFontes/homebrew-tap#release-maintenance).
+
 ### Engine inputs and updates
 
 `engine.lock` pins the checksum manifest of the local engine snapshot and the separate libidn2 source archive. The vendored CMake superbuild pins the remaining dependency sources. `scripts/prepare-engine.sh` checks the manifest and imported files before use; `scripts/build-engine.sh` (Linux) and `scripts/build-macos.sh` (Apple Silicon) compile them and run native feature checks. The native API bridge uses matching headers and libraries. Native profile definitions are compiled into the engine; `src/profiles.txt` lists their names and is embedded in the CLI at compile time.

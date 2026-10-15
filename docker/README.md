@@ -44,13 +44,16 @@ This is an HTTP client, so it does not open a browser, render pages, or execute 
 
 ## ⌨️ Native `curlimp` and Zsh autocomplete
 
-Prefer a command without Docker? [Install the native bundle](https://juanfontes.github.io/curlimp/docs/installation/) and put `curlimp` on your `PATH`:
+Prefer a command without Docker? With Homebrew on macOS Apple Silicon or Linux amd64/arm64:
 
 ```sh
+brew install juanfontes/tap/curlimp
 curlimp firefox147 -sS -I https://httpbin.org/status/200
 ```
 
-For profile autocomplete, add this to `~/.zshrc`:
+The [project-maintained tap](https://github.com/JuanFontes/homebrew-tap) installs a verified native release and Zsh completion; macOS remains experimental. Update with `brew update` and `brew upgrade curlimp`; remove it with `brew uninstall curlimp`. See the [installation guide](https://juanfontes.github.io/curlimp/docs/installation/#homebrew) for details. For Homebrew installs, follow the [Homebrew completion setup](https://juanfontes.github.io/curlimp/docs/completion/#homebrew-installations).
+
+Alternatively, [download the native bundle](https://juanfontes.github.io/curlimp/docs/installation/) and put `curlimp` on your `PATH`. For manually downloaded bundles, add this to `~/.zshrc`:
 
 ```zsh
 # Skip these first two lines if your shell already initializes completion.
