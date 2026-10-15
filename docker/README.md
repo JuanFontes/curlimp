@@ -57,7 +57,7 @@ brew install juanfontes/tap/curlimp
 curlimp firefox147 -sS -I https://httpbin.org/status/200
 ```
 
-The [project-maintained tap](https://github.com/JuanFontes/homebrew-tap) installs a verified native release and Zsh completion; macOS remains experimental. Update with `brew update` and `brew upgrade curlimp`; remove it with `brew uninstall curlimp`. See the [installation guide](https://juanfontes.github.io/curlimp/docs/installation/#homebrew) for details. For Homebrew installs, follow the [Homebrew completion setup](https://juanfontes.github.io/curlimp/docs/completion/#homebrew-installations).
+The [project-maintained tap](https://github.com/JuanFontes/homebrew-tap) installs a verified native release and Zsh completion; macOS remains experimental. Run `brew update` to refresh the package catalog, then `brew upgrade curlimp` to install the newer version; remove it with `brew uninstall curlimp`. See the [installation guide](https://juanfontes.github.io/curlimp/docs/installation/#homebrew) for details. For Homebrew installs, follow the [Homebrew completion setup](https://juanfontes.github.io/curlimp/docs/completion/#homebrew-installations).
 
 Homebrew prints a completion tip after installation. To enable completion in the same Zsh tab where you installed Curlimp, run `source <(curlimp --completions zsh)` after your shell has initialized completion. New sessions load the installed file when Homebrew completions are configured. Enable the selection menu with `zstyle ':completion:*:curlimp:*' menu yes select`; without it, the first Tab may insert only the shared prefix and a second Tab lists the versions.
 
@@ -72,7 +72,7 @@ source <(curlimp --completions zsh)
 zstyle ':completion:*:curlimp:*' menu yes select
 ```
 
-Open a new terminal, type `curlimp ` and press Tab to list profiles. Any prefix filters the list; Enter accepts the selected name so you can finish the request. This setup requires the native executable on your host. [Autocomplete guide](https://juanfontes.github.io/curlimp/docs/completion/).
+Load the setup in your current Zsh session, or open a new terminal after saving it. Then type `curlimp ` and press Tab to list profiles. Any prefix filters the list; Enter accepts the selected name so you can finish the request. This setup requires the native executable on your host. [Autocomplete guide](https://juanfontes.github.io/curlimp/docs/completion/).
 
 ## 🔄 Updates and fixed versions
 

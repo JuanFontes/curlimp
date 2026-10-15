@@ -46,6 +46,11 @@ const download = (platform: string) =>
   <h3>Upgrade a Homebrew installation</h3>
   <CodeBlock code={`brew update\nbrew upgrade curlimp`} />
   <p>
+    <code>brew update</code> refreshes the available package definitions.{' '}
+    <code>brew upgrade curlimp</code> installs the newer Curlimp version;
+    updating the catalog alone does not upgrade the installed command.
+  </p>
+  <p>
     The tap checks for new stable releases hourly and updates only after its
     package tests pass. Scheduled jobs may be delayed; updates are not
     immediate.

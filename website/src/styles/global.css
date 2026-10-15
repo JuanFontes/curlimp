@@ -633,6 +633,7 @@ a:hover {
 }
 .install-tabs .tab-list {
   display: flex;
+  flex-wrap: wrap;
   gap: 23px;
   border-bottom: 1px solid var(--border);
   margin-top: 18px;
