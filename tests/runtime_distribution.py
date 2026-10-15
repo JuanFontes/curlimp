@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 """Runtime refresh generation and observable container smoke contract."""
 from datetime import datetime, timezone
+import contextlib
+import importlib.util
+import io
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import runtime_refresh
+
+spec = importlib.util.spec_from_file_location('runtime_container', ROOT / 'scripts/check-runtime-container.py')
+runtime_container = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runtime_container)
 
 
 class RuntimeDistribution(unittest.TestCase):
@@ -22,6 +31,30 @@ class RuntimeDistribution(unittest.TestCase):
         for invalid in ['spaces here', 'line\nbreak', 'a' * 65, '../bad']:
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 runtime_refresh.generation(invalid)
+
+    def test_container_uses_host_nonroot_identity_and_preserves_private_exports(self):
+        for uid, gid, expected in [(1001, 1002, '1001:1002'), (0, 0, '65532:65532')]:
+            with self.subTest(uid=uid, gid=gid):
+                files = []
+                def docker(args, **kwargs):
+                    if args[1] == 'run':
+                        self.assertEqual(args[args.index('--user') + 1], expected)
+                        mount = args[args.index('--mount') + 1]
+                        source = mount.split('src=', 1)[1].split(',')[0]
+                        output = Path(source) / 'response.json'
+                        with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
+                            json.dump({'schema_version': 1, 'status': 200, 'exit_code': 0}, stream)
+                        files.append(output)
+                    else:
+                        self.assertEqual(args[1:3], ['rm', '-f'])
+                        if files:
+                            self.assertEqual(stat.S_IMODE(files[0].stat().st_mode), 0o600)
+                with patch.object(os, 'getuid', return_value=uid), \
+                        patch.object(os, 'getgid', return_value=gid), \
+                        patch.object(runtime_container.subprocess, 'run', side_effect=docker), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    runtime_container.check('curlimp:test')
+                self.assertEqual(len(files), 1)
 
     def test_container_smoke_checks_mounted_json_and_cleans_failed_container(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -38,7 +71,9 @@ if sys.argv[1] == 'run':
     if sys.argv[sys.argv.index('--json-file') + 1] != 'https://httpbin.org/status/200': sys.exit(8)
     mount = sys.argv[sys.argv.index('--mount') + 1]
     source = mount.split('src=', 1)[1].split(',')[0]
-    pathlib.Path(source, 'response.json').write_text(os.environ['REPORT_JSON'])
+    output = pathlib.Path(source, 'response.json')
+    with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
+        stream.write(os.environ['REPORT_JSON'])
 ''')
             fake.chmod(0o755)
             log = root / 'commands.jsonl'
@@ -54,7 +89,8 @@ if sys.argv[1] == 'run':
                 commands = [json.loads(line) for line in log.read_text().splitlines()]
                 run = commands[0]
                 self.assertIn('--user', run)
-                self.assertEqual(run[run.index('--user') + 1], '65532:65532')
+                expected_user = f'{os.getuid()}:{os.getgid()}' if os.getuid() else '65532:65532'
+                self.assertEqual(run[run.index('--user') + 1], expected_user)
                 self.assertEqual(run[run.index('--network') + 1], 'bridge')
                 self.assertIn('--max-time', run)
                 self.assertIn('--json-file', run)

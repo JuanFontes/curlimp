@@ -2,6 +2,7 @@
 """Exercise Docker DNS, trusted HTTPS, and a mounted JSON export as a nonroot user."""
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -14,11 +15,14 @@ URL = 'https://httpbin.org/status/200'
 def check(image):
     name = 'curlimp-smoke-' + uuid.uuid4().hex
     with tempfile.TemporaryDirectory(prefix='curlimp-container-') as directory:
-        # The runtime deliberately has no passwd database; use a numeric nonroot UID.
+        # Match host ownership so its nonroot reader can open the private 0600 export.
+        # Root callers can read the fallback user's file without running the CLI as root.
+        uid, gid = os.getuid(), os.getgid()
+        identity = f'{uid}:{gid}' if uid != 0 else '65532:65532'
         Path(directory).chmod(0o777)
         try:
             subprocess.run(['docker', 'run', '--rm', '--name', name, '--network', 'bridge',
-                            '--user', '65532:65532', '--workdir', '/exports', '--mount', f'type=bind,src={directory},dst=/exports',
+                            '--user', identity, '--workdir', '/exports', '--mount', f'type=bind,src={directory},dst=/exports',
                             image, '-sS', '--fail', '--connect-timeout', '10', '--max-time', '30',
                             '--json-file', URL], check=True, timeout=45)
             files = list(Path(directory).glob('*.json'))

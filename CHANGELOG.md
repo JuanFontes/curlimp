@@ -19,7 +19,7 @@
 
 Use `docker pull juanfontes/curlimp` for a refreshed stable image, or pin `juanfontes/curlimp:0.4.0` (or a digest). Native Linux amd64/arm64 and experimental macOS Apple Silicon bundles are accompanied by `SHA256SUMS`; verify the matching archive and keep its extracted files together. macOS binaries target 13.0 and are signed ad hoc, not notarized; validation on an actual macOS 13 system is not claimed. Windows and Intel Mac native bundles are unavailable.
 
-Release checks require the exact source revision to pass Linux amd64, Linux arm64 and Apple Silicon CI, including package and final-container checks. Local focused validation covers the behavior fixes, a native macOS source build and Linux arm64 runtime; it is not a completed cross-platform release result. Real-browser fingerprint equivalence and HTTP/3 browser fidelity remain unverified.
+Release checks require the exact source revision to pass Linux amd64, Linux arm64 and Apple Silicon CI, including package and final-container checks. Real-browser fingerprint equivalence and HTTP/3 browser fidelity remain unverified.
 
 ## 0.3.1 — 2026-10-14
 
