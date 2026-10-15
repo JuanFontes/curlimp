@@ -223,6 +223,20 @@ class Transfers(unittest.TestCase):
         self.assertEqual(result.stdout, b'/onefailure')
         self.assertEqual(result.stderr.count(b'(22)'), 1)
 
+    def test_invalid_shared_get_data_preserves_outputs_before_setup(self):
+        for options in ([], ['--parallel']):
+            for data in (b'\xff', b'key=bad\x00value'):
+                with self.subTest(options=options, data=data):
+                    for name in ('headers', 'body', 'cookies'):
+                        (self.root / name).write_bytes(b'keep-existing')
+                    result = self.run_cli(*options, '-G', '--data-binary', '@-',
+                                          '-D', 'headers', '-o', 'body', '-c', 'cookies',
+                                          *self.urls('/one', '/two'), data=data)
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    for name in ('headers', 'body', 'cookies'):
+                        self.assertEqual((self.root / name).read_bytes(), b'keep-existing', name)
+                    self.assertEqual(self.server.requests, [])
+
     def test_invalid_common_settings_preserve_outputs(self):
         (self.root / 'first').write_bytes(b'keep')
         result = self.run_cli('--impersonate', 'invalid', *self.urls('/one', '/two'),
