@@ -19,7 +19,7 @@ COPY --from=native-builder /opt/native/include/ /include/
 COPY --from=native-builder /opt/native/LICENSE* /licenses/
 COPY --from=native-builder /opt/native/engine-build.txt /opt/native/engine-origin.md /opt/native/engine-inputs.sha256 /
 
-FROM rust:1.90-slim-bookworm@sha256:64232e656c058f4468e8d024e990acff04f0fd5a5c0a88a574dc37773d7325c9 AS builder
+FROM rust:1.99-slim-bookworm@sha256:2c3a22f0a5533ea2dd5a16627bc841228151faa2d4de2644ac9987e4a2f1f2fa AS builder
 WORKDIR /src
 COPY --from=native-builder /opt/native/ /opt/native/
 ENV CURL_IMPERSONATE_DIR=/opt/native
