@@ -12,6 +12,12 @@ on:
       - '.github/workflows/pages.yml'
       - 'scripts/published_release.py'
       - 'tests/published_release.py'
+      - 'SECURITY.md'
+      - '.github/dependabot.yml'
+      - '.github/workflows/dependency-review.yml'
+      - '.github/workflows/dependency-report.yml'
+      - 'scripts/dependency_report.py'
+      - 'tests/dependency_report.py'
   pull_request:
     paths-ignore:
       - 'website/**'
@@ -22,6 +28,12 @@ on:
       - '.github/workflows/pages.yml'
       - 'scripts/published_release.py'
       - 'tests/published_release.py'
+      - 'SECURITY.md'
+      - '.github/dependabot.yml'
+      - '.github/workflows/dependency-review.yml'
+      - '.github/workflows/dependency-report.yml'
+      - 'scripts/dependency_report.py'
+      - 'tests/dependency_report.py'
   workflow_dispatch:
     inputs:
       runtime_refresh:

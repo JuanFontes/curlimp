@@ -1,0 +1,46 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    groups:
+      website-compatible:
+        applies-to: version-updates
+        update-types: [minor, patch]
+    commit-message:
+      prefix: 'deps(website)'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:30'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    groups:
+      actions-compatible:
+        applies-to: version-updates
+        update-types: [minor, patch]
+    commit-message:
+      prefix: 'ci(deps)'
+
+  # Only maintainer build images. The root Dockerfile follows release promotion.
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+      day: monday
+      time: '10:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'build(deps)'
+
+# No automatic merge. Cargo has no external dependencies today; add a Cargo
+# entry when crates are introduced. Native CMake pins need explicit review.
