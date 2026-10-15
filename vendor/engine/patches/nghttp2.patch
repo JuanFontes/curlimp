@@ -1,0 +1,106 @@
+# Backport of the eight stop-reading state guards from upstream nghttp2.
+# Commit: 5c7df8fa815ac1004d9ecb9d1f7595c4d37f46e1
+# Source: https://github.com/nghttp2/nghttp2/commit/5c7df8fa815ac1004d9ecb9d1f7595c4d37f46e1
+# Advisory: GHSA-6933-cjhr-5qg6 / CVE-2026-27135
+# Original author: Tatsuhiro Tsujikawa; upstream MIT license (COPYING).
+# Adapted to 1.63.0 contexts; retains RFC 7540 priority support.
+--- a/lib/nghttp2_session.c
++++ b/lib/nghttp2_session.c
+@@ -6082,6 +6082,10 @@
+           return rv;
+         }
+ 
++        if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++          return (nghttp2_ssize)inlen;
++        }
++
+         on_begin_frame_called = 1;
+ 
+         rv = session_process_headers_frame(session);
+@@ -6447,6 +6451,10 @@
+ 
+           if (nghttp2_is_fatal(rv)) {
+             return rv;
++          }
++
++          if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++            return (nghttp2_ssize)inlen;
+           }
+         }
+       }
+@@ -6704,6 +6712,10 @@
+           return rv;
+         }
+ 
++        if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++          return (nghttp2_ssize)inlen;
++        }
++
+         session_inbound_frame_reset(session);
+ 
+         break;
+@@ -7006,6 +7018,10 @@
+ 
+         if (nghttp2_is_fatal(rv)) {
+           return rv;
++        }
++
++        if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++          return (nghttp2_ssize)inlen;
+         }
+       } else {
+         iframe->state = NGHTTP2_IB_IGN_HEADER_BLOCK;
+@@ -7172,12 +7188,16 @@
+             rv = session->callbacks.on_data_chunk_recv_callback(
+                 session, iframe->frame.hd.flags, iframe->frame.hd.stream_id,
+                 in - readlen, (size_t)data_readlen, session->user_data);
++            if (nghttp2_is_fatal(rv)) {
++              return NGHTTP2_ERR_CALLBACK_FAILURE;
++            }
++
++            if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++              return (nghttp2_ssize)inlen;
++            }
++
+             if (rv == NGHTTP2_ERR_PAUSE) {
+               return (nghttp2_ssize)(in - first);
+-            }
+-
+-            if (nghttp2_is_fatal(rv)) {
+-              return NGHTTP2_ERR_CALLBACK_FAILURE;
+             }
+           }
+         }
+@@ -7259,6 +7279,10 @@
+           return rv;
+         }
+ 
++        if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++          return (nghttp2_ssize)inlen;
++        }
++
+         if (rv != 0) {
+           busy = 1;
+ 
+@@ -7277,6 +7301,10 @@
+         return rv;
+       }
+ 
++      if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++        return (nghttp2_ssize)inlen;
++      }
++
+       session_inbound_frame_reset(session);
+ 
+       break;
+@@ -7303,6 +7331,10 @@
+       rv = session_process_altsvc_frame(session);
+       if (nghttp2_is_fatal(rv)) {
+         return rv;
++      }
++
++      if (iframe->state == NGHTTP2_IB_IGN_ALL) {
++        return (nghttp2_ssize)inlen;
+       }
+ 
+       session_inbound_frame_reset(session);

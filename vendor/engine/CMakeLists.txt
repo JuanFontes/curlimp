@@ -36,8 +36,8 @@ set(NGTCP2_VERSION "1.20.0")
 set(NGTCP2_URL_HASH "SHA256=871ec97ad86803cf312901b0c393b0ee70163e25a87c9b2894d1234341ce4e97")
 set(NGHTTP3_VERSION "1.15.0")
 set(NGHTTP3_URL_HASH "SHA256=c6c491a52804814098e446630e6efc459afc0d3da7952ffe6cbdc0b3f99b2b62")
-set(ZLIB_VERSION "1.3.1")
-set(ZLIB_URL_HASH "SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23")
+set(ZLIB_VERSION "1.3.2")
+set(ZLIB_URL_HASH "SHA256=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16")
 set(ZSTD_VERSION "1.5.7")
 set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
 set(CARES_VERSION "1.34.8")
@@ -79,7 +79,7 @@ else()
 endif()
 message(STATUS "curl-impersonate version: ${_curl_impersonate_version}")
 
-set(ZLIB_URL "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz")
+set(ZLIB_URL "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
 set(ZSTD_URL "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz")
 set(BROTLI_URL "https://github.com/google/brotli/archive/refs/tags/v${BROTLI_VERSION}.tar.gz")
 set(BORINGSSL_URL "https://github.com/google/boringssl/archive/${BORINGSSL_COMMIT}.zip")
@@ -278,8 +278,10 @@ ExternalProject_Add(zlib
   CMAKE_ARGS
     ${_common_cmake_args}
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DBUILD_SHARED_LIBS=OFF
-    -DZLIB_BUILD_EXAMPLES=OFF
+    -DZLIB_BUILD_SHARED=OFF
+    -DZLIB_BUILD_STATIC=ON
+    -DZLIB_BUILD_TESTING=OFF
+    -DZLIB_INSTALL=ON
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
 )
 
@@ -376,12 +378,14 @@ if(WIN32)
   list(APPEND _ngtcp2_boringssl_libs_arg "-DBORINGSSL_LIBRARIES=${BORINGSSL_SSL_LIB}|${BORINGSSL_CRYPTO_LIB}")
 endif()
 
-# nghttp2
+# nghttp2: retain 1.63.0 priorities with the authorized upstream security fix.
+_track_external_project_patch(nghttp2 _nghttp2_patch_file _nghttp2_patch_changed)
 ExternalProject_Add(nghttp2
   URL "${NGHTTP2_URL}"
   URL_HASH "${NGHTTP2_URL_HASH}"
   SOURCE_DIR "${DEPS_SRC_DIR}/nghttp2"
   BINARY_DIR "${DEPS_BUILD_DIR}/nghttp2"
+  PATCH_COMMAND ${PATCH_EXE} -p1 -i "${_nghttp2_patch_file}"
   INSTALL_DIR "${DEPS_INSTALL_DIR}"
   CMAKE_ARGS
     ${_common_cmake_args}
@@ -396,6 +400,23 @@ ExternalProject_Add(nghttp2
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
   INSTALL_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target install --parallel ${SUBJOBS}
 )
+
+# Execute the native public-API regression in normal supported-platform builds.
+# Cross builds can compile the harness but cannot execute target binaries here.
+ExternalProject_Add(nghttp2-regression
+  DEPENDS nghttp2
+  SOURCE_DIR "${CMAKE_SOURCE_DIR}/tests"
+  BINARY_DIR "${DEPS_BUILD_DIR}/nghttp2-regression"
+  CMAKE_ARGS ${_common_cmake_args} "-DNGHTTP2_PREFIX=${DEPS_INSTALL_DIR}"
+  INSTALL_COMMAND ""
+)
+if(NOT CMAKE_CROSSCOMPILING)
+  ExternalProject_Add_Step(nghttp2-regression verify
+    DEPENDEES build
+    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir <BINARY_DIR> -C Release --output-on-failure
+    ALWAYS ON
+  )
+endif()
 
 # nghttp3
 _track_external_project_patch(nghttp3 _nghttp3_patch_file _nghttp3_patch_changed)
@@ -531,7 +552,7 @@ if(USE_LIBIDN2)
 endif()
 
 if(WIN32)
-  set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/zlibstatic.lib")
+  set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/zs.lib")
   set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/zstd_static.lib")
 else()
   set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/libz.a")
@@ -616,7 +637,7 @@ endif()
 _track_external_project_patch(curl _curl_patch_file _curl_patch_changed)
 if(NOT _curl_patch_changed AND
    (_brotli_patch_changed OR _boringssl_patch_changed OR
-    _nghttp3_patch_changed OR _ngtcp2_patch_changed))
+    _nghttp2_patch_changed OR _nghttp3_patch_changed OR _ngtcp2_patch_changed))
   _invalidate_external_project(curl "A curl dependency patch changed")
 endif()
 

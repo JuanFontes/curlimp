@@ -1,0 +1,33 @@
+name: Native dependency maintenance report
+on:
+  schedule:
+    - cron: '17 12 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test reporting policy without network
+        run: python3 tests/dependency_report.py
+      - name: Discover releases and triage upstream advisories
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/dependency_report.py --output dependency-report
+      - name: Write job summary including source failures
+        if: always()
+        run: |
+          if test -f dependency-report/report.md; then
+            cat dependency-report/report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Save read-only maintenance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-dependency-report
+          path: dependency-report/
+          if-no-files-found: error
+          retention-days: 30
