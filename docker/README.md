@@ -2,7 +2,7 @@
 
 **Browser impersonation from your terminal. Ready to run with Docker.**
 
-![Release 0.4.0](https://img.shields.io/badge/Release-0.4.0-0F766E?style=flat-square)
+![Release 0.5.0](https://img.shields.io/badge/Release-0.5.0-0F766E?style=flat-square)
 ![Rust CLI](https://img.shields.io/badge/Rust-CLI-E57324?style=flat-square&logo=rust&logoColor=white)
 ![libcurl engine](https://img.shields.io/badge/libcurl-Engine-073551?style=flat-square&logo=curl&logoColor=white)
 ![Linux amd64 and arm64](https://img.shields.io/badge/Linux-amd64_%7C_arm64-334155?style=flat-square&logo=linux&logoColor=white)
@@ -11,9 +11,9 @@ Send HTTP requests with browser-specific TLS and HTTP settings using familiar cu
 
 The Rust CLI calls the bundled libcurl-impersonate engine directly. The image includes its runtime libraries and CA certificates. You only need Docker with Linux container support.
 
-**New in 0.4.0:** fixes for CA override precedence, HTTP 304 output files, profile validation, ordered stdin readers, HEAD/include selection, and JSON cookie-jar output. The release retires the inconsistent OkHttp preset and has 38 browser profiles; Chrome 150 remains the default. Native inputs update zlib to 1.3.2 and backport the upstream nghttp2 stop-reading fix while retaining nghttp2 1.63.0.
+**New in 0.5.0:** multiple URLs, optional bounded parallel transfers, per-URL output files, and ordered JSON arrays. JSON exports now use private temporary storage with bounded payload memory. The native engine and 38 browser profiles are unchanged; Chrome 150 remains the default.
 
-[Website & documentation](https://juanfontes.github.io/curlimp/) · [Source & full guide](https://github.com/JuanFontes/curlimp) · [Native downloads](https://github.com/JuanFontes/curlimp/releases/tag/v0.4.0) · [Changelog](https://github.com/JuanFontes/curlimp/blob/main/CHANGELOG.md) · [Report an issue](https://github.com/JuanFontes/curlimp/issues)
+[Website & documentation](https://juanfontes.github.io/curlimp/) · [Source & full guide](https://github.com/JuanFontes/curlimp) · [Native downloads](https://github.com/JuanFontes/curlimp/releases/tag/v0.5.0) · [Changelog](https://github.com/JuanFontes/curlimp/blob/main/CHANGELOG.md) · [Report an issue](https://github.com/JuanFontes/curlimp/issues)
 
 ## 🚀 Your first request
 
@@ -37,10 +37,10 @@ docker run --rm juanfontes/curlimp safari2601 \
 Flags may appear before or after the profile. `--impersonate PROFILE` still works; the last profile selection wins. Use a complete profile ID, not a prefix.
 
 - **`juanfontes/curlimp`** is all you need for everyday use. With no tag, Docker defaults to **`latest`**, which follows the newest validated stable release. Release candidates never replace it.
-- **`0.4.0`** is the versioned tag for this release; versioned tags remain unchanged.
+- **`0.5.0`** is the versioned tag for this release; versioned tags remain unchanged.
 - Both tags support **`linux/amd64` and `linux/arm64`**.
 
-This is an HTTP client, so it does not open a browser, render pages, or execute JavaScript. Version 0.4.0 supports **one URL per invocation and a documented subset of curl flags**.
+This is an HTTP client, so it does not open a browser, render pages, or execute JavaScript. Version 0.5.0 supports **multiple URLs with one common request configuration and a documented subset of curl flags**.
 
 ## ⌨️ Native `curlimp` and Zsh autocomplete
 
@@ -81,15 +81,15 @@ docker run --rm --pull=always juanfontes/curlimp \
 For scripts or CI, pin the release so that upgrades are deliberate:
 
 ```sh
-docker run --rm juanfontes/curlimp:0.4.0 \
+docker run --rm juanfontes/curlimp:0.5.0 \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```
 
-Use a digest when immutable selection is required. The root Dockerfile defaults to the versioned `juanfontes/curlimp:0.4.0` runtime tag, which release policy keeps unchanged. Override `RUNTIME_IMAGE` with a digest or, for local development, `--build-arg RUNTIME_IMAGE=curlimp:local`. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
+Use a digest when immutable selection is required. The root Dockerfile defaults to the versioned `juanfontes/curlimp:0.5.0` runtime tag, which release policy keeps unchanged. Override `RUNTIME_IMAGE` with a digest or, for local development, `--build-arg RUNTIME_IMAGE=curlimp:local`. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
 
 ## 💾 Export TXT or JSON responses
 
-`--txt` saves a response to an automatic `.txt` file, `--json-file` saves a structured `.json` file, and `--json-output` prints that JSON object to stdout. These are project extensions; `--json DATA` still sends JSON in a request.
+`--txt` saves each response to an automatic `.txt` file, `--json-file` saves each to a structured `.json` file, and `--json-output` prints one object for one URL or an input-ordered array for several URLs to stdout. These are project extensions; `--json DATA` still sends JSON in a request.
 
 ```sh
 # JSON in the terminal: headers and complete body.
@@ -117,9 +117,34 @@ JSON also includes `schema_version`, HTTP `status`, and transfer `exit_code`. Th
 
 Files look like `2026-10-11_14-32-08_httpbin-org-status-418.json`: process-local timestamp (usually UTC in Docker), sanitized original host/path, no URL credentials/query/fragment. Collisions get a numeric suffix. Files are owner-only on Unix. Without a volume mount, files disappear with `--rm`; file exports do not print response bytes to stdout. An explicitly requested `-c -` cookie jar can still write there for TXT and JSON-file exports; `--json-output` rejects that combination to keep stdout as one JSON document. `-sS` suppresses the saved-path message, while still showing errors.
 
-Choose one export mode. Exports reject `-o`, `-D`, and `-w`; JSON also rejects `-N` and buffers at most **64 MiB** of selected content. Larger JSON responses fail with exit 23 without silently truncating; TXT streams without this limit. Transfers keep their usual exit codes, including 22 with fail options. Failed transfers or output writes may leave partial content.
+Choose one export mode. Exports reject `-o`, `-D`, and `-w`; JSON also rejects `-N` and accepts at most **64 MiB per response** of selected content. JSON payloads use private temporary files, requiring writable temporary storage; data is read in bounded chunks. Larger JSON responses or storage failures return 23 without silently truncating and suppress a multi-response aggregate; TXT streams without this limit. Transfers keep their usual exit codes, including 22 with fail options. Failed transfers or output writes may leave partial content.
 
 See the **[full export guide](https://juanfontes.github.io/curlimp/docs/response-exports/)** for the JSON schema, encoding, redirects, native commands, and error examples.
+
+## 🔀 Multiple URLs and parallel requests
+
+Requests run sequentially by default. The first `-o` belongs to the first URL, the second to the second URL; missing destinations use stdout. Use `-o -` to skip saving a response. Line breaks are optional.
+
+```sh
+# Save the first response to a file on the host; print the second.
+docker run --rm -v "$PWD:/work" juanfontes/curlimp -sS -i \
+  https://httpbin.org/status/200 https://httpbin.org/status/502 \
+  -o /work/response-200.txt
+
+# Save all sequential output to one file with host redirection.
+docker run --rm juanfontes/curlimp -sS -i \
+  https://httpbin.org/status/200 https://httpbin.org/status/502 > responses.txt
+
+# Print an ordered JSON array with up to two active transfers.
+docker run --rm juanfontes/curlimp \
+  --parallel --parallel-max 2 --json-output -sS -i \
+  https://httpbin.org/status/200 https://httpbin.org/status/418 \
+  https://httpbin.org/status/502
+```
+
+`-Z` is short for `--parallel`; its default maximum is 50. `--parallel-max` alone does not enable parallelism. Ordinary parallel stdout and shared header output can interleave. Use distinct files or JSON exports to keep responses separate. `--txt` and `--json-file` create one file per URL. Multi-URL JSON includes a zero-based `transfer_index` and a normalized `url` with credentials and fragment removed; query strings remain.
+
+All URLs share request options, the selected profile, and cookies. Sequential exit status follows the last transfer; parallel execution retains the first observed failure. JSON records each transfer's own result. Add a fail flag to treat HTTP errors as failures. Export storage failures return 23. See the **[multiple-URL guide](https://juanfontes.github.io/curlimp/docs/multiple-urls/)** for output pairing, cookies, limits, and error handling.
 
 ## 🎭 Choose your browser
 
@@ -159,13 +184,13 @@ A profile configures TLS ClientHello characteristics, protocol negotiation, HTTP
 | Safari | 📱 iOS | `safari172_ios`, `safari180_ios`, `safari184_ios`, `safari260_ios` |
 | Tor Browser | 🖥️ Desktop | `tor145` |
 
-Profiles are versioned presets, not an automatically refreshed browser list. Selecting a Tor Browser profile does not route requests through Tor. Version 0.4.0 removes `okhttp4_android` and its native `okhttp4` alias; requests selecting either name now fail before output files are opened.
+Profiles are versioned presets, not an automatically refreshed browser list. Selecting a Tor Browser profile does not route requests through Tor. Version 0.4.0 removed `okhttp4_android` and its native `okhttp4` alias; requests selecting either name now fail before output files are opened.
 
 ```sh
 docker run --rm juanfontes/curlimp --list-profiles
 ```
 
-The command validates the catalog against the installed engine. See the [catalog](https://github.com/JuanFontes/curlimp/blob/v0.4.0/src/profiles.txt) and [native profile settings](https://github.com/JuanFontes/curlimp/blob/v0.4.0/vendor/engine/patches/curl.patch).
+The command validates the catalog against the installed engine. See the [catalog](https://github.com/JuanFontes/curlimp/blob/v0.5.0/src/profiles.txt) and [native profile settings](https://github.com/JuanFontes/curlimp/blob/v0.5.0/vendor/engine/patches/curl.patch).
 
 ### Profile selection and environment variables
 
@@ -341,13 +366,13 @@ Read the [body/header guide](https://juanfontes.github.io/curlimp/docs/body-and-
 | macOS Intel | amd64 | Not available |
 | Windows | amd64 / arm64 | Not available |
 
-[Download version 0.4.0 and SHA256SUMS](https://github.com/JuanFontes/curlimp/releases/tag/v0.4.0). Keep the entire extracted folder together. Linux includes its loader and runtime libraries; macOS includes its engine in `lib/`. macOS downloads are signed ad hoc and are not notarized. Windows and Intel Mac users can run the Linux image with a suitable Docker installation.
+[Download version 0.5.0 and SHA256SUMS](https://github.com/JuanFontes/curlimp/releases/tag/v0.5.0). Keep the entire extracted folder together. Linux includes its loader and runtime libraries; macOS includes its engine in `lib/`. macOS downloads are signed ad hoc and are not notarized. Windows and Intel Mac users can run the Linux image with a suitable Docker installation.
 
 ## 🧭 Scope and validation
 
 The release checks require packaged HTTP/TLS/HTTP2 transfers, profile selection, output handling, and certificate overrides on each published platform. Linux also tests the assembled minimal filesystem and a final container DNS/HTTPS request with a mounted nonroot JSON export. These are functional checks; **successful requests and echoed headers do not prove fingerprint equivalence to a real browser**.
 
-Current limits include one HTTP(S) URL per process, a subset of curl flags, no `.curlrc`/`--config`, `--next`, multipart, retries, parallel transfers, or progress meter. HTTP/3 is exposed by the engine but has not been validated end to end. See the [full compatibility contract](https://juanfontes.github.io/curlimp/docs/compatibility/).
+Current limits include a subset of curl flags, one common request configuration per invocation, and no `.curlrc`/`--config`, `--next`, URL globbing, multipart, retries, or progress meter. HTTP/3 is exposed by the engine but has not been validated end to end. See the [full compatibility contract](https://juanfontes.github.io/curlimp/docs/compatibility/).
 
 ## 🛠️ Source, maintenance, and license
 

@@ -37,7 +37,7 @@ Chrome 150 is the default profile. Responses are decompressed automatically whil
 
 ## Read the boundaries first
 
-This is a **documented subset of curl**, currently accepting one HTTP(S) URL per invocation. It does not render HTML, execute JavaScript, manage a browser session, or solve browser challenges.
+This is a **documented subset of curl**, supporting multiple HTTP(S) URLs with one common request configuration. It does not render HTML, execute JavaScript, manage a browser session, or solve browser challenges.
 
 Functional HTTP/TLS tests demonstrate supported client behavior. They do **not** establish fingerprint equivalence to a real browser. See [compatibility and limits](./compatibility/) before replacing existing scripts.
 

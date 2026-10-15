@@ -27,13 +27,15 @@ The CLI calls libcurl directly through the bridge. It does not launch a browser,
 
 ## Rust: the command-line contract
 
-`src/cli.rs` parses supported flags and rejects unsupported input. `src/main.rs` resolves the selected profile and environment defaults. `src/body.rs` prepares request bodies and header files. `src/engine.rs` connects those settings to native calls and controls output; `src/writeout.rs` validates write-out formats.
+`src/cli.rs` parses supported flags and rejects unsupported input. `src/main.rs` resolves the selected profile and environment defaults. `src/body.rs` prepares request bodies and header files. `src/engine.rs` configures each native handle and controls output; `src/transfers.rs` schedules the handles through libcurl multi; `src/writeout.rs` validates write-out formats.
 
-Request inputs and output formats are validated before output files are opened. Request bodies are buffered. Ordinary response output and TXT exports stream raw bytes. JSON export modes buffer up to 64 MiB, preserve UTF-8 in strings and use explicit Base64 for binary data. `src/export.rs` owns file naming and serialization; see [response exports](../response-exports/).
+Request inputs and output formats are validated before output files are opened. Request bodies are buffered. Ordinary response output and TXT exports stream raw bytes. JSON export modes use private temporary files with a 64 MiB selected-byte limit per response, preserve UTF-8 in strings, and use explicit Base64 for binary data. `src/export.rs` coordinates files and ordered results, `src/export_field.rs` serializes fields in bounded chunks, and `src/spool.rs` creates private storage; see [response exports](../response-exports/).
 
 ## C: a narrow native boundary
 
 `native/bridge.c` exposes the subset of native operations the Rust client needs. It owns libcurl handles and header lists, invokes transfers and passes body/header callbacks across the boundary.
+
+One multi handle runs admitted transfers on the event-loop thread, with a limit of one for sequential requests. Each transfer has independent callback state. Connection reuse and HTTP/2 multiplexing remain engine responsibilities, while cookie state is shared within the invocation.
 
 The native library remains C code with its own dependencies. Rust on the CLI side does not make the entire networking stack memory-safe.
 

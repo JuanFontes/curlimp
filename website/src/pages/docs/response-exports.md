@@ -11,11 +11,11 @@ lead: 'Keep a complete response for later, or pass a structured result to anothe
 
 These are Curlimp extensions, not standard curl options. Without them, ordinary response output is unchanged.
 
-| Option          | Destination                                               | Contents                                                             |
-| --------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
-| `--txt`         | Automatically named `.txt` file in the current directory  | The selected response bytes, including HTML or binary data           |
-| `--json-output` | Standard output                                           | One JSON object containing the selected response and transfer result |
-| `--json-file`   | Automatically named `.json` file in the current directory | The same JSON object                                                 |
+| Option          | Destination                                               | Contents                                                        |
+| --------------- | --------------------------------------------------------- | --------------------------------------------------------------- |
+| `--txt`         | Automatically named `.txt` file in the current directory  | The selected response bytes, in one file per URL                |
+| `--json-output` | Standard output                                           | One object for one URL; an input-ordered array for several URLs |
+| `--json-file`   | Automatically named `.json` file in the current directory | One object per URL, in a separate automatic file                |
 
 Choose one mode per invocation. File modes do not also print the response body. An explicitly requested cookie jar on stdout (`-c -`) can still write there with TXT and JSON-file exports. `--json-output` rejects `-c -` to preserve one JSON document. A saved-path message goes to stderr unless `-s` is active; `-sS` still shows errors but suppresses that saved-path message.
 
@@ -60,6 +60,18 @@ curlimp --json-output -sS -L -i https://httpbin.org/status/301
 ```
 
 These endpoints demonstrate response handling. They do not verify browser fingerprints. `/status/200` has an empty body, so use `/status/418` when you want to see body content.
+
+## Export several responses
+
+For several URLs, `--json-output` emits one array in input order, even with parallel execution. Each member also includes a zero-based `transfer_index` and normalized `url`. Credentials and fragments are removed from that URL, but queries remain; an invalid URL uses an empty URL field. Single-URL objects keep their existing structure.
+
+```sh
+docker run --rm juanfontes/curlimp --parallel --parallel-max 2 \
+  --json-output -sS -i \
+  https://httpbin.org/status/200 https://httpbin.org/status/418
+```
+
+`--txt` and `--json-file` create a separate file for every URL. JSON files include the same multi-URL identity fields. Duplicate requests get distinct collision-safe filenames. See [multiple URLs](../multiple-urls/) for output pairing, per-transfer errors, and saving one aggregate with host redirection.
 
 ## Save files from Docker
 
@@ -157,6 +169,17 @@ This intentionally exits with 22. The JSON also records `"status": 502` and `"ex
 
 After a network failure, JSON can contain the received portion of the response and a nonzero `exit_code`; TXT can be partial. If no response is received, JSON reports status `0`. Always check the process result when completeness matters. Invalid options or profile settings fail before a report is produced.
 
-**JSON modes buffer up to 64 MiB of combined selected body and header bytes.** Exceeding that limit aborts with exit code 23 and produces no JSON report; it never silently truncates the payload. Use TXT or ordinary `-o` for larger transfers. TXT streams without this limit. Filesystem or output-stream errors also return 23 and may leave partial output.
+**JSON accepts up to 64 MiB of combined selected body and header bytes per response.** Private temporary files keep payload memory bounded; serialization reads fixed-size chunks. Temporary files are owner-only and unlinked before response bytes are written. They require writable temporary storage (`TMPDIR`, or `/tmp` by default) until the export finishes. Large batches need space for the serialized results as well as active responses; escaping and Base64 can increase that size.
+
+Exceeding the per-response limit returns 23 with no JSON report for that response; a multi-URL stdout array is suppressed entirely if any storage or serialization step fails. Ordinary network failures still produce result objects. A failed stdout/file write can leave partial output. Use TXT or ordinary `-o` for larger responses; TXT streams without the JSON limit.
+
+For a read-only Docker filesystem, provide writable temporary storage in addition to any output mount:
+
+```sh
+docker run --rm --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m \
+  juanfontes/curlimp --json-output -sS -I https://httpbin.org/status/200
+```
+
+Size the temporary filesystem for your actual batch. A tmpfs uses memory; a writable disk-backed directory mounted at `/tmp` is another option.
 
 Exported response content is not redacted: headers can contain cookies, and bodies can contain private information. Automatically created files are owner-readable/writable on Unix systems. The report does not collect outgoing request headers, credentials, or the command line. Review a file before sharing it.
