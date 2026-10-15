@@ -40,6 +40,8 @@ pub struct Config {
     pub headers: Vec<String>,
     pub data: Vec<DataPart>,
     pub outputs: Vec<String>,
+    pub parallel: bool,
+    pub parallel_max: Option<usize>,
     pub timeout_ms: Option<i64>,
     pub connect_timeout_ms: Option<i64>,
     pub dump_header: Option<String>,
@@ -139,6 +141,7 @@ pub(crate) fn takes_value(name: &str) -> bool {
             | "data-binary"
             | "json"
             | "output"
+            | "parallel-max"
             | "dump-header"
             | "max-time"
             | "connect-timeout"
@@ -186,6 +189,7 @@ pub(crate) fn short_name(c: char) -> Result<&'static str, CliError> {
         'w' => "write-out",
         'N' => "no-buffer",
         'q' => "disable",
+        'Z' => "parallel",
         _ => {
             return Err(error(format!(
                 "unsupported option -{c}; see --help for supported options"
@@ -265,6 +269,18 @@ pub(crate) fn apply(
             c.export = Some(mode);
         }
         "output" => c.outputs.push(v),
+        "parallel" => c.parallel = true,
+        "no-parallel" => c.parallel = false,
+        "parallel-max" => {
+            let value: u64 = v
+                .parse()
+                .map_err(|_| error("--parallel-max requires an unsigned integer"))?;
+            c.parallel_max = Some(if value == 0 {
+                50
+            } else {
+                value.min(65535) as usize
+            });
+        }
         "dump-header" => c.dump_header = Some(v),
         "write-out" => {
             c.inputs.push(Input::WriteOut(v.clone()));

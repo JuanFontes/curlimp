@@ -264,3 +264,39 @@ fn urls_and_destinations_keep_independent_order() {
     assert_eq!(targets[2].output, None);
     assert_eq!(targets[2].index, 2);
 }
+
+#[test]
+fn parallel_flags_accept_curl_forms_and_reject_invalid_limits() {
+    for flags in [
+        vec!["-ZsS"],
+        vec!["--parallel-max=2", "--parallel"],
+        vec!["-Z", "--no-parallel"],
+        vec!["--parallel-max", "0"],
+        vec!["--parallel-max", "65536"],
+    ] {
+        let mut args = flags;
+        args.push("https://httpbin.org/status/200");
+        assert!(parse(args.into_iter().map(String::from).collect()).is_ok());
+    }
+    for value in ["-1", "1.5", "a", "18446744073709551616"] {
+        assert!(parse(
+            ["--parallel-max", value, "https://httpbin.org/status/200"]
+                .into_iter()
+                .map(String::from)
+                .collect()
+        )
+        .is_err());
+    }
+}
+
+#[test]
+fn parallel_limits_and_overrides_preserve_curl_semantics() {
+    let url = "https://httpbin.org/status/200";
+    for (value, expected) in [("0", 50), ("1", 1), ("65535", 65535), ("65536", 65535)] {
+        let c = transfer(&["--parallel-max", value, url]);
+        assert_eq!(c.parallel_max, Some(expected));
+        assert!(!c.parallel);
+    }
+    assert!(!transfer(&["-Z", "--no-parallel", url]).parallel);
+    assert!(transfer(&["--no-parallel", "-Z", url]).parallel);
+}

@@ -38,18 +38,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path == '/empty': body, status = b'', 204
         if self.path == '/unchanged': body, status = b'', 304
         if self.path == '/error': body, status = b'failure', 502
+        if self.path == '/partial': body = b'partial-data'
         if self.path == '/redirect':
             body, status, headers = b'', 302, [('Location', '/one')]
         if self.path == '/set-cookie': headers = [('Set-Cookie', 'session=first; Path=/')]
         if self.path == '/cookie': body = self.headers.get('Cookie', '').encode()
         if self.path == '/echo': body = self.rfile.read(int(self.headers.get('Content-Length', '0')))
+        if self.path.startswith('/wait/'):
+            with self.server.condition:
+                self.server.active += 1
+                self.server.peak = max(self.server.peak, self.server.active)
+                self.server.condition.notify_all()
+            self.server.release.wait(10)
+        if self.path == '/release': self.server.release.set()
         self.send_response(status)
         self.send_header('Content-Length', str(len(body)))
         for name, value in headers: self.send_header(name, value)
         self.end_headers()
+        if self.path == '/partial':
+            self.wfile.write(body[:3])
+            self.wfile.flush()
+            self.close_connection = True
+            return
         if self.command != 'HEAD':
             try: self.wfile.write(body)
             except (BrokenPipeError, ConnectionResetError): pass
+        if self.path.startswith('/wait/'):
+            with self.server.condition:
+                self.server.active -= 1
+                self.server.condition.notify_all()
 
 
 class Transfers(unittest.TestCase):
@@ -59,6 +76,7 @@ class Transfers(unittest.TestCase):
         cls.server.daemon_threads = True
         cls.server.lock = threading.Lock()
         cls.server.requests = []
+        cls.server.condition = threading.Condition()
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
         cls.url = f'http://127.0.0.1:{cls.server.server_port}'
@@ -74,6 +92,8 @@ class Transfers(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         with self.server.lock: self.server.requests.clear()
+        self.server.release = threading.Event()
+        self.server.active = self.server.peak = 0
 
     def run_cli(self, *args, data=None, env=None):
         environment = {k: v for k, v in os.environ.items()
@@ -81,6 +101,11 @@ class Transfers(unittest.TestCase):
         environment.update(env or {})
         return subprocess.run([CLI, '-sS', '--noproxy', '*', *args], cwd=self.root,
                               env=environment, input=data, capture_output=True, timeout=15)
+
+    def tearDown(self):
+        self.server.release.set()
+        with self.server.condition:
+            self.assertTrue(self.server.condition.wait_for(lambda: self.server.active == 0, 3))
 
     def urls(self, *paths):
         return [self.url + path for path in paths]
@@ -198,6 +223,80 @@ class Transfers(unittest.TestCase):
         self.assertEqual((self.root / 'first').read_bytes(), b'keep')
         self.assertFalse((self.root / 'headers').exists())
         self.assertEqual(self.server.requests, [])
+
+    def test_parallel_admission_and_disabled_parallel(self):
+        for flags, limit in [(['-Z', '--parallel-max', '2'], 2),
+                             (['-Z', '--parallel-max', '1'], 1),
+                             (['-Z', '--no-parallel'], 1),
+                             (['--parallel-max', '2'], 1)]:
+            with self.subTest(flags=flags):
+                self.server.release.clear()
+                self.server.active = self.server.peak = 0
+                args = [CLI, '-sS', '--noproxy', '*', *flags,
+                        *self.urls('/wait/1', '/wait/2', '/wait/3', '/wait/4')]
+                with subprocess.Popen(args, cwd=self.root, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE) as process:
+                    try:
+                        with self.server.condition:
+                            ready = self.server.condition.wait_for(lambda: self.server.active >= limit, 4)
+                            self.assertTrue(ready, f'expected {limit} admitted transfers')
+                            self.assertEqual(self.server.active, limit)
+                        self.server.release.set()
+                        stdout, stderr = process.communicate(timeout=10)
+                        self.assertEqual(process.returncode, 0, stderr)
+                        self.assertLessEqual(self.server.peak, limit)
+                        for number in range(1, 5): self.assertIn(f'/wait/{number}'.encode(), stdout)
+                    finally:
+                        self.server.release.set()
+                        if process.poll() is None: process.kill()
+
+    def test_parallel_files_and_writeout_are_independent(self):
+        result = self.run_cli('-Z', *self.urls('/wait/1', '/release'), '-o', 'a', '-o', 'b',
+                              '-w', '%{http_code}\n')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'a').read_bytes(), b'/wait/1')
+        self.assertEqual((self.root / 'b').read_bytes(), b'/release')
+        self.assertEqual(result.stdout, b'200\n200\n')
+
+    def test_parallel_failure_frees_slot_and_is_not_masked(self):
+        result = self.run_cli('-Z', '--parallel-max', '1', '-f', *self.urls('/error', '/one', '/two'))
+        self.assertEqual(result.returncode, 22, result.stderr)
+        self.assertEqual(result.stdout, b'/one/two')
+        self.assertEqual(result.stderr.count(b'(22)'), 1)
+
+    def test_parallel_timeout_does_not_block_other_results(self):
+        result = self.run_cli('-Z', '-m', '0.2', *self.urls('/wait/1', '/two'),
+                              '-o', 'a', '-o', 'b')
+        self.server.release.set()
+        self.assertEqual(result.returncode, 28, result.stderr)
+        self.assertEqual((self.root / 'b').read_bytes(), b'/two')
+        self.assertFalse((self.root / 'a').exists())
+
+    def test_parallel_partial_body_preserves_other_output(self):
+        result = self.run_cli('-Z', *self.urls('/partial', '/one'), '-o', 'a', '-o', 'b')
+        self.assertEqual(result.returncode, 18, result.stderr)
+        self.assertEqual((self.root / 'a').read_bytes(), b'par')
+        self.assertEqual((self.root / 'b').read_bytes(), b'/one')
+
+    def test_parallel_broken_stdout_returns_write_error(self):
+        with subprocess.Popen([CLI, '-sS', '-Z', '--noproxy', '*', *self.urls('/one', '/two')],
+                              cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+            process.stdout.close()
+            process.wait(timeout=10)
+            self.assertEqual(process.returncode, 23, process.stderr.read())
+
+    def test_repeated_output_path_does_not_append(self):
+        result = self.run_cli(*self.urls('/one', '/two'), '-o', 'same', '-o', 'same')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'same').read_bytes(), b'/two')
+
+    def test_parallel_header_sink_cookies_and_profile(self):
+        result = self.run_cli('firefox147', '-Z', '--parallel-max', '1', '-c', 'jar',
+                              *self.urls('/set-cookie', '/cookie'), '-D', 'headers')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.endswith(b'session=first'))
+        self.assertEqual((self.root / 'headers').read_bytes().count(b'HTTP/1.1 200'), 2)
+        self.assertTrue(all('Firefox/147' in r[2].get('User-Agent', '') for r in self.server.requests))
 
 
 if __name__ == '__main__':

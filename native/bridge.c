@@ -97,6 +97,7 @@ ci_handle *ci_new(ci_writer body, ci_writer header, void *userdata) {
   INIT(CURLOPT_WRITEDATA, h);
   INIT(CURLOPT_HEADERFUNCTION, header_cb);
   INIT(CURLOPT_HEADERDATA, h);
+  INIT(CURLOPT_PRIVATE, h);
 #undef INIT
   return h;
 }
@@ -161,10 +162,36 @@ int ci_body(ci_handle *h, const unsigned char *data, size_t len) {
   return (int)curl_easy_setopt(h->easy, CURLOPT_COPYPOSTFIELDS, (const char *)data);
 }
 
-int ci_perform(ci_handle *h) {
-  CURLcode rc = curl_easy_setopt(h->easy, CURLOPT_HTTPHEADER, h->headers);
-  return rc ? (int)rc : (int)curl_easy_perform(h->easy);
+CURLM *ci_multi_new(void) { return curl_multi_init(); }
+void ci_multi_free(CURLM *multi) { curl_multi_cleanup(multi); }
+int ci_multi_add(CURLM *multi, ci_handle *h) {
+  if(curl_easy_setopt(h->easy, CURLOPT_HTTPHEADER, h->headers))
+    return CURLM_BAD_EASY_HANDLE;
+  return (int)curl_multi_add_handle(multi, h->easy);
 }
+int ci_multi_remove(CURLM *multi, ci_handle *h) {
+  return (int)curl_multi_remove_handle(multi, h->easy);
+}
+int ci_multi_perform(CURLM *multi) {
+  int running;
+  return (int)curl_multi_perform(multi, &running);
+}
+int ci_multi_poll(CURLM *multi) { return (int)curl_multi_poll(multi, NULL, 0, 1000, NULL); }
+ci_handle *ci_multi_next(CURLM *multi, int *code) {
+  int remaining;
+  CURLMsg *message;
+  while((message = curl_multi_info_read(multi, &remaining))) {
+    if(message->msg == CURLMSG_DONE) {
+      ci_handle *h = NULL;
+      curl_easy_getinfo(message->easy_handle, CURLINFO_PRIVATE, &h);
+      *code = (int)message->data.result;
+      return h;
+    }
+  }
+  return NULL;
+}
+const char *ci_multi_error(int code) { return curl_multi_strerror((CURLMcode)code); }
+int ci_multi_exit_code(int code) { return code == CURLM_OUT_OF_MEMORY ? CURLE_OUT_OF_MEMORY : CURLE_FAILED_INIT; }
 
 const char *ci_error(ci_handle *h, int code) {
   return h->error[0] ? h->error : curl_easy_strerror((CURLcode)code);

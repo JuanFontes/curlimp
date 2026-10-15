@@ -28,7 +28,6 @@ extern "C" {
     fn ci_long(handle: *mut c_void, name: *const c_char, value: c_long) -> c_int;
     fn ci_header(handle: *mut c_void, value: *const c_char) -> c_int;
     fn ci_body(handle: *mut c_void, data: *const u8, len: usize) -> c_int;
-    fn ci_perform(handle: *mut c_void) -> c_int;
     fn ci_error(handle: *mut c_void, code: c_int) -> *const c_char;
     fn ci_info_long(handle: *mut c_void, name: *const c_char) -> c_long;
     fn ci_info_string(handle: *mut c_void, name: *const c_char) -> *const c_char;
@@ -507,10 +506,6 @@ impl Transfer {
 
     pub(crate) fn raw(&self) -> *mut c_void {
         self.handle.raw.as_ptr()
-    }
-
-    pub(crate) fn perform(&mut self) -> i32 {
-        unsafe { ci_perform(self.raw()) }
     }
 
     pub(crate) fn complete(
