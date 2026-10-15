@@ -19,6 +19,8 @@ The status endpoint does not authenticate this sample account. This example demo
 
 Do not put `username:password` between flags and the URL without `-u`; the parser treats it as another positional URL. Interactive password prompting and `.netrc` are not supported.
 
+On shipped Linux and macOS builds, supported `-u` and proxy `-U` credential forms are overwritten in the writable process argument area after startup. This reduces later exposure through tools such as `ps`, but cannot erase shell history or eliminate every race before masking. Command traces and verbose diagnostics can still reveal secrets.
+
 ## Bearer tokens
 
 Set the Authorization header explicitly:
@@ -28,7 +30,7 @@ curlimp -sS -I -H 'Authorization: Bearer demo-token' \
   https://httpbin.org/status/200
 ```
 
-`demo-token` is a placeholder, not a functioning credential. Debug logs, shell history and process listings can expose real secrets. Keep them out of shared command output and issue reports.
+`demo-token` is a placeholder, not a functioning credential. Explicit authorization headers are not masked from process listings. Debug logs and shell history can also expose real secrets. Keep them out of shared command output and issue reports.
 
 ## Send cookie values
 

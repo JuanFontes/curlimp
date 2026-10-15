@@ -10,6 +10,7 @@ cp -a /usr/local/bin/curlimp "$root/usr/local/bin/"
 mkdir -p "$root/usr/local/share/zsh/site-functions"
 cp /usr/local/share/zsh/site-functions/_curlimp "$root/usr/local/share/zsh/site-functions/"
 cp -a /opt/native "$root/opt/"
+cp /runtime-refresh.txt "$root/opt/native/runtime-refresh.txt"
 # Resolve only our own executable. ldd includes transitive shared libraries
 # and the architecture-specific ELF loader; missing libraries fail packaging.
 ldd /usr/local/bin/curlimp > "$root/opt/native/runtime-libraries.txt"

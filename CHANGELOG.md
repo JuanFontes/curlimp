@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0 — 2026-10-14
+
+### Behavior and compatibility
+
+- Correct CA trust precedence: explicit `--cacert` or `CURL_CA_BUNDLE` suppresses `SSL_CERT_DIR`; without either, `SSL_CERT_FILE` and `SSL_CERT_DIR` can both apply.
+- Preserve an existing `-o` file after a successful HTTP 304 when no selected response bytes arrive. Validate profiles before opening response or header files. Read stdin body, header and write-out sources in argument order, including superseded `-w @-` readers.
+- Make `-I` select HEAD and included headers according to flag order; a later `--no-include` keeps HEAD but omits selected headers, including in exports. Reject `--json-output -c -` before transfer so stdout remains one JSON document. TXT and JSON-file exports may still use a stdout cookie jar.
+- Mask supported `-u`/`-U` credential forms in the process argument area after startup on shipped Linux and macOS builds. Shell history remains exposed, and startup observation races remain possible. Remove a redundant resolved upload buffer after handing a copy to libcurl; uploads remain buffered.
+- Retire `okhttp4_android` and the native `okhttp4` alias because the preset's headers were inconsistent with the advertised client. Both names now fail early. The catalog has 38 browser profiles; `chrome150` remains the default.
+
+### Native inputs and distribution
+
+- Update zlib to 1.3.2. Keep nghttp2 at 1.63.0 for legacy HTTP/2 priorities and backport the official stop-reading fix for CVE-2026-27135. The release does not imply that an exploit against Curlimp was demonstrated or that browser fingerprints changed.
+- Refresh the five copied Debian runtime packages through a weekly UTC cache generation and record package versions and refresh generation. Test the final derived image on both Linux architectures with bounded DNS/HTTPS and a mounted nonroot JSON export. A refresh creates a new candidate; existing version tags are not republished.
+- Set the root Dockerfile's default runtime image to the versioned `juanfontes/curlimp:0.4.0` tag, with `RUNTIME_IMAGE` available for digest selection. Gate Docker `latest`, Docker Hub stable text, GitHub Latest, and Pages against the same newer-stable policy and complete published downloads. Versioned releases can remain available without advancing stable channels.
+- Add a read-only dependency report for official release sources and curl/nghttp2 advisories. It identifies manual review candidates, not complete vulnerability coverage; network and schema failures produce an incomplete report and nonzero result.
+
+Use `docker pull juanfontes/curlimp` for a refreshed stable image, or pin `juanfontes/curlimp:0.4.0` (or a digest). Native Linux amd64/arm64 and experimental macOS Apple Silicon bundles are accompanied by `SHA256SUMS`; verify the matching archive and keep its extracted files together. macOS binaries target 13.0 and are signed ad hoc, not notarized; validation on an actual macOS 13 system is not claimed. Windows and Intel Mac native bundles are unavailable.
+
+Release checks require the exact source revision to pass Linux amd64, Linux arm64 and Apple Silicon CI, including package and final-container checks. Real-browser fingerprint equivalence and HTTP/3 browser fidelity remain unverified.
+
 ## 0.3.1 — 2026-10-14
 
 ### Security and native engine

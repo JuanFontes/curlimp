@@ -21,8 +21,16 @@ pub enum ExportMode {
     JsonFile,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Input {
+    Data(usize),
+    Header(usize),
+    WriteOut(String),
+}
+
 #[derive(Debug, Default, PartialEq)]
 pub struct Config {
+    pub inputs: Vec<Input>,
     pub export: Option<ExportMode>,
     pub url: String,
     pub silent: bool,
@@ -212,7 +220,10 @@ pub(crate) fn apply(
         }
         "url" => add_url(c, v)?,
         "request" => c.method = Some(v),
-        "header" => c.headers.push(v),
+        "header" => {
+            c.inputs.push(Input::Header(c.headers.len()));
+            c.headers.push(v);
+        }
         "data" | "data-raw" | "data-binary" | "json" => {
             let kind = match name {
                 "data" => DataKind::Form,
@@ -220,6 +231,7 @@ pub(crate) fn apply(
                 "data-binary" => DataKind::Binary,
                 _ => DataKind::Json,
             };
+            c.inputs.push(Input::Data(c.data.len()));
             c.data.push(DataPart { kind, value: v });
         }
         "txt" | "json-output" | "json-file" => {
@@ -237,7 +249,10 @@ pub(crate) fn apply(
         }
         "output" => c.output = Some(v),
         "dump-header" => c.dump_header = Some(v),
-        "write-out" => c.write_out = Some(v),
+        "write-out" => {
+            c.inputs.push(Input::WriteOut(v.clone()));
+            c.write_out = Some(v);
+        }
         "max-time" => c.timeout_ms = Some(milliseconds(&v)?),
         "connect-timeout" => c.connect_timeout_ms = Some(milliseconds(&v)?),
         "max-redirs" => {
@@ -279,8 +294,14 @@ pub(crate) fn apply(
         "no-location" => c.follow = false,
         "include" => c.include = true,
         "no-include" => c.include = false,
-        "head" => c.head = true,
-        "no-head" => c.head = false,
+        "head" => {
+            c.head = true;
+            c.include = true;
+        }
+        "no-head" => {
+            c.head = false;
+            c.include = false;
+        }
         "get" => c.get = true,
         "verbose" => c.verbose = true,
         "no-verbose" => c.verbose = false,
@@ -399,6 +420,11 @@ pub fn parse(args: Vec<String>) -> Result<Action, CliError> {
         if c.output.is_some() || c.dump_header.is_some() || c.write_out.is_some() {
             return Err(error("export modes cannot be combined with --output (-o), --dump-header (-D), or --write-out (-w)"));
         }
+        if mode == ExportMode::JsonOutput && c.cookie_jar.as_deref() == Some("-") {
+            return Err(error(
+                "--json-output cannot be combined with --cookie-jar -",
+            ));
+        }
         if mode != ExportMode::Text && c.no_buffer {
             return Err(error(
                 "JSON export modes cannot be combined with --no-buffer (-N)",
@@ -406,4 +432,65 @@ pub fn parse(args: Vec<String>) -> Result<Action, CliError> {
         }
     }
     Ok(Action::Transfer(Box::new(c)))
+}
+
+/// Locate credential values using the same option grammar as parsing. Offsets
+/// refer to bytes in the original OS arguments (including argv[0]).
+pub fn credential_arguments(args: &[String]) -> Vec<(usize, usize)> {
+    let mut spans = Vec::new();
+    let mut index = 0;
+    while let Some(arg) = args.get(index) {
+        if arg == "--" {
+            break;
+        }
+        if let Some(long) = arg.strip_prefix("--") {
+            let (name, attached) = long
+                .split_once('=')
+                .map_or((long, None), |(n, v)| (n, Some(v)));
+            if matches!(
+                name,
+                "help" | "version" | "list-profiles" | "complete-profiles" | "completions"
+            ) {
+                break;
+            }
+            if takes_value(name) {
+                if matches!(name, "user" | "proxy-user") {
+                    spans.push(if attached.is_some() {
+                        (index + 1, 2 + name.len() + 1)
+                    } else {
+                        (index + 2, 0)
+                    });
+                }
+                if attached.is_none() {
+                    index += 1;
+                }
+            }
+        } else if arg.starts_with('-') && arg.len() > 1 {
+            for (position, ch) in arg[1..].char_indices() {
+                let Ok(name) = short_name(ch) else {
+                    break;
+                };
+                if matches!(name, "help" | "version") {
+                    return spans;
+                }
+                if takes_value(name) {
+                    let offset = 1 + position + ch.len_utf8();
+                    let attached = offset < arg.len();
+                    if matches!(name, "user" | "proxy-user") {
+                        spans.push(if attached {
+                            (index + 1, offset)
+                        } else {
+                            (index + 2, 0)
+                        });
+                    }
+                    if !attached {
+                        index += 1;
+                    }
+                    break;
+                }
+            }
+        }
+        index += 1;
+    }
+    spans
 }

@@ -62,6 +62,7 @@ Response exports (project extensions, choose one):
   Default: body only; -i adds headers; -I selects headers only. -v stays on stderr.
   Files use the current directory; Docker needs a mounted directory to retain them.
   Export modes reject -o, -D and -w; JSON modes also reject -N.
+  --json-output rejects --cookie-jar - to keep stdout a single JSON document.
   JSON buffers up to 64 MiB and uses explicit base64 for non-UTF-8 bytes.
   --json DATA still sends a request body; it is not an output selector.
 
@@ -76,5 +77,6 @@ CURL_IMPERSONATE_HEADERS=no disables headers for an environment/default profile;
 explicit --impersonate uses its :yes/:no suffix (headers enabled if omitted).
 Compression priority: last --compressed/--no-compressed flag, then profile default.
 With --no-impersonate, decoding is opt-in via --compressed.
+The unverified, inconsistent OkHttp profile and its okhttp4 alias are retired.
 Unknown flags and write-out variables fail explicitly.
 Request bodies are buffered. Ordinary output and TXT exports stream bytes; JSON exports buffer up to 64 MiB.

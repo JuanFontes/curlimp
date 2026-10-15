@@ -19,19 +19,20 @@ class PublicationTests(unittest.TestCase):
             dict(name=name, state='uploaded', size=100) for name in [
                 'curlimp-9.8.7-linux-amd64.tar.gz', 'curlimp-9.8.7-linux-arm64.tar.gz',
                 'curlimp-9.8.7-macos-arm64.tar.gz', 'SHA256SUMS']])
+        self.latest = dict(self.release)
         self.image = dict(name='9.8.7', tag_status='active', images=[
             dict(os='linux', architecture=arch, status='active', digest='sha256:' + 'a' * 64)
             for arch in ['amd64', 'arm64']])
 
     def test_accepts_complete_stable_release(self):
-        self.assertTrue(publication.eligible('9.8.7', self.release, self.image)[0])
+        self.assertTrue(publication.eligible('9.8.7', self.release, self.image, self.latest)[0])
 
     def test_rejects_unpublished_or_wrong_release(self):
         for release in [None, dict(self.release, draft=True), dict(self.release, prerelease=True),
                         dict(self.release, published_at=None), dict(self.release, tag_name='v9.8.6')]:
             with self.subTest(release=release):
-                self.assertFalse(publication.eligible('9.8.7', release, self.image)[0])
-        self.assertFalse(publication.eligible('9.8.7-rc.1', self.release, self.image)[0])
+                self.assertFalse(publication.eligible('9.8.7', release, self.image, self.latest)[0])
+        self.assertFalse(publication.eligible('9.8.7-rc.1', self.release, self.image, self.latest)[0])
 
     def test_requires_every_uploaded_nonempty_asset(self):
         for index in range(4):
@@ -39,23 +40,28 @@ class PublicationTests(unittest.TestCase):
                 release = copy.deepcopy(self.release)
                 release['assets'][index][field] = value
                 with self.subTest(index=index, field=field):
-                    self.assertFalse(publication.eligible('9.8.7', release, self.image)[0])
+                    self.assertFalse(publication.eligible('9.8.7', release, self.image, self.latest)[0])
 
     def test_requires_both_published_linux_images(self):
         for image in [None, dict(self.image, images=self.image['images'][:1]),
                       dict(self.image, name='9.8.6'), dict(self.image, tag_status='inactive')]:
             with self.subTest(image=image):
-                self.assertFalse(publication.eligible('9.8.7', self.release, image)[0])
+                self.assertFalse(publication.eligible('9.8.7', self.release, image, self.latest)[0])
         for field, value in [('os', 'windows'), ('status', 'inactive'), ('digest', '')]:
             image = copy.deepcopy(self.image)
             image['images'][1][field] = value
-            self.assertFalse(publication.eligible('9.8.7', self.release, image)[0])
+            self.assertFalse(publication.eligible('9.8.7', self.release, image, self.latest)[0])
+
+    def test_requires_latest_stable_even_for_complete_older_release(self):
+        for latest in [None, dict(self.latest, tag_name='v9.8.8')]:
+            with self.subTest(latest=latest):
+                self.assertFalse(publication.eligible('9.8.7', self.release, self.image, latest)[0])
 
     def test_only_http_404_means_not_published(self):
         for status in [404, 401, 403, 429, 500, 503]:
             error = HTTPError('https://api.github.com/test', status, 'test', {}, io.BytesIO())
             self.addCleanup(error.close)
-            with self.subTest(status=status), patch.object(publication, 'urlopen', side_effect=error):
+            with self.subTest(status=status), patch('release_policy.urlopen', side_effect=error):
                 if status == 404:
                     self.assertIsNone(publication.fetch_json('https://api.github.com/test'))
                 else:

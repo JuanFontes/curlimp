@@ -27,14 +27,25 @@ class BundleTrust(unittest.TestCase):
             'curl_impersonate_headers', 'curl_ca_bundle', 'ssl_cert_file', 'ssl_cert_dir'}}
         if os.environ.get('REQUIRE_NO_SYSTEM_CA') == '1':
             self.assertFalse(Path('/etc/ssl/certs/ca-certificates.crt').exists())
-        for custom in ({'SSL_CERT_DIR': str(certs)}, {'SSL_CERT_FILE': str(fixture.cert)},
-                       {'CURL_CA_BUNDLE': str(fixture.cert)},
-                       {'SSL_CERT_DIR': str(certs), 'SSL_CERT_FILE': str(fixture.cert)}):
-            with self.subTest(custom=custom):
-                result = subprocess.run([compat.CLI, '-q', '-sS', fixture.tls_url + '/bytes'],
+        other = fixture.root / 'untrusted.pem'
+        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+                        '-keyout', str(fixture.root / 'untrusted.key'), '-out', str(other),
+                        '-subj', '/CN=untrusted'], check=True, capture_output=True)
+        for flags, custom, code in [
+                ([], {'SSL_CERT_DIR': str(certs)}, 0),
+                ([], {'SSL_CERT_FILE': str(fixture.cert)}, 0),
+                ([], {'CURL_CA_BUNDLE': str(fixture.cert)}, 0),
+                ([], {'SSL_CERT_DIR': str(certs), 'SSL_CERT_FILE': str(fixture.cert)}, 0),
+                ([], {'SSL_CERT_DIR': str(certs), 'SSL_CERT_FILE': str(other)}, 0),
+                ([], {'CURL_CA_BUNDLE': '', 'SSL_CERT_FILE': '', 'SSL_CERT_DIR': str(certs)}, 0),
+                ([], {'SSL_CERT_DIR': str(certs), 'CURL_CA_BUNDLE': str(other)}, 60),
+                (['--cacert', str(other)], {'SSL_CERT_DIR': str(certs)}, 60),
+                (['--cacert', str(fixture.cert)], {'CURL_CA_BUNDLE': str(other)}, 0)]:
+            with self.subTest(flags=flags, custom=custom):
+                result = subprocess.run([compat.CLI, '-q', '-sS', *flags, fixture.tls_url + '/bytes'],
                                         env=env | custom, capture_output=True, timeout=10)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(result.stdout, compat.BINARY)
+                self.assertEqual(result.returncode, code, result.stderr)
+                self.assertEqual(result.stdout, compat.BINARY if code == 0 else b'')
 
 
 if __name__ == '__main__':

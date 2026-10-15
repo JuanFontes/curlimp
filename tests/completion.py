@@ -32,7 +32,7 @@ class CompletionTests(unittest.TestCase):
             ('chrome150', ['chrome150']), ('chrome131_', ['chrome131_android']),
             ('firefox14', ['firefox144', 'firefox147']), ('firefox147', ['firefox147']),
             ('safari26', ['safari260', 'safari2601', 'safari260_ios']),
-            ('ed', ['edge101', 'edge99']), ('okhttp4_', ['okhttp4_android']),
+            ('ed', ['edge101', 'edge99']), ('okhttp4_', []),
             ('t', ['tor145']), ('does-not-exist', []), ('Chrome', []),
             ('chrome*', []), ('chrome150-extra', []),
         ]:
@@ -41,13 +41,13 @@ class CompletionTests(unittest.TestCase):
 
     def test_empty_prefix_lists_each_available_profile_once(self):
         names = self.candidates('')
-        self.assertEqual(len(names), 39)
-        self.assertEqual(len(set(names)), 39)
+        self.assertEqual(len(names), 38)
+        self.assertEqual(len(set(names)), 38)
         self.assertIn('chrome150', names)
         self.assertIn('firefox147', names)
         self.assertIn('safari2601', names)
         self.assertIn('edge99', names)
-        self.assertIn('okhttp4_android', names)
+        self.assertNotIn('okhttp4_android', names)
         self.assertIn('tor145', names)
 
     def test_flags_and_profile_options_preserve_completion_context(self):

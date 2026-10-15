@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.20)
+project(nghttp2_stop_reading_regression C)
+set(NGHTTP2_PREFIX "" CACHE PATH "Installed nghttp2 dependency prefix")
+find_library(NGHTTP2_STATIC NAMES nghttp2 libnghttp2 REQUIRED
+  PATHS "${NGHTTP2_PREFIX}/lib" NO_DEFAULT_PATH)
+add_executable(nghttp2_stop_reading nghttp2_stop_reading.c)
+target_include_directories(nghttp2_stop_reading PRIVATE "${NGHTTP2_PREFIX}/include")
+target_compile_definitions(nghttp2_stop_reading PRIVATE NGHTTP2_STATICLIB)
+target_link_libraries(nghttp2_stop_reading PRIVATE "${NGHTTP2_STATIC}")
+enable_testing()
+add_test(NAME nghttp2_stop_reading COMMAND nghttp2_stop_reading)

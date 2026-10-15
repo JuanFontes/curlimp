@@ -115,6 +115,17 @@ class Exports(unittest.TestCase):
             if flag == '-i': self.assertEqual(doc['body'].encode(), HTML)
             else: self.assertNotIn('body', doc)
 
+    def test_head_include_order_selects_json_headers(self):
+        for flags, selected in [(["-I"], True), (["-I", "--no-include"], False),
+                                (["--no-include", "-I"], True),
+                                (["-I", "--no-include", "-i"], True)]:
+            with self.subTest(flags=flags):
+                doc, _ = self.report(*flags)
+                self.assertNotIn("body", doc)
+                self.assertEqual("headers" in doc, selected)
+                if selected:
+                    self.assertTrue(doc["headers"][0].startswith("HTTP/1.1 200"))
+
     def test_txt_preserves_the_selected_bytes(self):
         for flags, path, expected in [([], '/html', HTML), ([], '/binary', BINARY), ([], '/empty', b'')]:
             result = self.run_cli('--txt', *flags, path=path)

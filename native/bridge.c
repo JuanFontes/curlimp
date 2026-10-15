@@ -183,3 +183,38 @@ int ci_url_host_path(const char *url, char *buffer, size_t capacity) {
   curl_url_cleanup(parsed);
   return ok;
 }
+
+/* Writable argv is available on the shipped macOS and glibc Linux targets.
+ * Rust first copies argument values, then asks us to overwrite only credentials.
+ * This reduces process-list exposure; it cannot remove shell history or races.
+ */
+#if defined(__APPLE__)
+#include <crt_externs.h>
+#elif defined(__linux__)
+static int ci_argc;
+static char **ci_argv;
+__attribute__((constructor)) static void ci_capture_argv(int argc, char **argv) {
+  ci_argc = argc;
+  ci_argv = argv;
+}
+#endif
+
+void ci_mask_argument(size_t index, size_t offset) {
+#if defined(__APPLE__)
+  int argc = *_NSGetArgc();
+  char **argv = *_NSGetArgv();
+#elif defined(__linux__)
+  int argc = ci_argc;
+  char **argv = ci_argv;
+#else
+  (void)index;
+  (void)offset;
+  return;
+#endif
+#if defined(__APPLE__) || defined(__linux__)
+  if(argv && argc > 0 && index < (size_t)argc && argv[index]) {
+    size_t len = strlen(argv[index]);
+    if(offset < len) memset(argv[index] + offset, '*', len - offset);
+  }
+#endif
+}

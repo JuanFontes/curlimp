@@ -1,47 +1,54 @@
 use crate::{body::read_source, cli::CliError};
 
 pub enum Token {
-    Text(String),
+    Text(Vec<u8>),
     Variable(String),
 }
 
-pub fn parse(format: &str) -> Result<Vec<Token>, CliError> {
-    let source = if let Some(path) = format.strip_prefix('@') {
-        String::from_utf8(read_source(path)?)
-            .map_err(|_| CliError::new(2, "write-out format must be UTF-8"))?
+/// Read each source when its option is encountered, even when later replaced.
+pub fn read(format: &str) -> Result<Vec<u8>, CliError> {
+    Ok(if let Some(path) = format.strip_prefix('@') {
+        let mut bytes = read_source(path)?;
+        bytes.retain(|b| !matches!(b, b'\r' | b'\n' | 0));
+        bytes
     } else {
-        format.to_owned()
-    };
-    let mut chars = source.chars().peekable();
+        format.as_bytes().to_vec()
+    })
+}
+
+/// Validate only the selected format after all ordered input sources are read.
+pub fn parse(source: &[u8]) -> Result<Vec<Token>, CliError> {
+    let mut chars = source.iter().copied().peekable();
     let mut tokens = Vec::new();
-    let mut text = String::new();
+    let mut text = Vec::new();
     while let Some(ch) = chars.next() {
         match ch {
-            '\\' => match chars.next() {
-                Some('n') => text.push('\n'),
-                Some('r') => text.push('\r'),
-                Some('t') => text.push('\t'),
-                Some('\\') => text.push('\\'),
+            b'\\' => match chars.next() {
+                Some(b'n') => text.push(b'\n'),
+                Some(b'r') => text.push(b'\r'),
+                Some(b't') => text.push(b'\t'),
                 Some(c) => {
-                    text.push('\\');
+                    text.push(b'\\');
                     text.push(c);
                 }
-                None => text.push('\\'),
+                None => text.push(b'\\'),
             },
-            '%' if chars.peek() == Some(&'%') => {
+            b'%' if chars.peek() == Some(&b'%') => {
                 chars.next();
-                text.push('%');
+                text.push(b'%');
             }
-            '%' if chars.peek() == Some(&'{') => {
+            b'%' if chars.peek() == Some(&b'{') => {
                 chars.next();
-                let mut name = String::new();
+                let mut name = Vec::new();
                 loop {
                     match chars.next() {
-                        Some('}') => break,
+                        Some(b'}') => break,
                         Some(c) => name.push(c),
                         None => return Err(CliError::new(2, "unterminated write-out variable")),
                     }
                 }
+                let name = String::from_utf8(name)
+                    .map_err(|_| CliError::new(2, "write-out variable must be UTF-8"))?;
                 if !matches!(
                     name.as_str(),
                     "http_code"
