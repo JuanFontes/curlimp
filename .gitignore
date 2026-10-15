@@ -34,6 +34,7 @@ venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
 
 # Editor and operating-system files.
 .idea/

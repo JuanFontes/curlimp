@@ -67,7 +67,7 @@ def fetch(url, token):
             return response.read().decode('utf-8')
     except urllib.error.HTTPError as error:
         raise SourceError(f'HTTP {error.code}') from None
-    except (urllib.error.URLError, OSError) as error:
+    except (urllib.error.URLError, OSError):
         # Do not print exception text or request headers (may contain secrets).
         raise SourceError('network failure') from None
     except UnicodeError:

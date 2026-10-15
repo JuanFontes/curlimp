@@ -6,7 +6,7 @@ destination=${2:?Missing destination}
 expected=${3:?Missing manifest SHA-256}
 case "$expected" in ''|*[!0-9a-f]*) echo 'Invalid manifest SHA-256' >&2; exit 2 ;; esac
 [ "${#expected}" -eq 64 ] || { echo 'Invalid manifest SHA-256 length' >&2; exit 2; }
-source_dir=$(CDPATH= cd -- "$source_dir" && pwd)
+source_dir=$(CDPATH='' cd -- "$source_dir" && pwd)
 sha256() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
 }
@@ -30,7 +30,7 @@ mkdir -p "$(dirname -- "$destination")"
 staging=$(mktemp -d "$destination.tmp.XXXXXX")
 trap 'rm -rf "$staging"' EXIT HUP INT TERM
 # Copy only pinned inputs, preserving the executable mode of build helpers.
-while read -r digest name; do
+while read -r _digest name; do
   mkdir -p "$staging/$(dirname -- "$name")"
   cp -p "$source_dir/$name" "$staging/$name"
 done < "$source_dir/SHA256SUMS"

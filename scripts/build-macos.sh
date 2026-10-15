@@ -1,7 +1,7 @@
 #!/bin/sh
 # Build the native Apple Silicon engine and Rust CLI from verified inputs.
 set -eu
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo=$(dirname -- "$script_dir")
 . "$repo/engine.lock"
 workspace=${1:?Usage: build-macos.sh absolute-workspace [jobs] [--engine-only]}

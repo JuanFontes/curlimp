@@ -41,15 +41,15 @@ The project brings those profiles into an everyday terminal workflow: inspect he
 
 ## ✨ Features at a glance
 
-| Feature | What you can do |
-| --- | --- |
-| 🎭 **Browser profiles** | Choose among 38 presets covering Chrome, Firefox, Safari, Edge, Tor Browser, and mobile variants. Chrome 150 is the default. |
-| 🧰 **Familiar request options** | Work with headers, request bodies, authentication, cookies, proxies, redirects, and selected curl write-out variables. |
-| 📖 **Automatic response decoding** | Receive decompressed response bytes while a browser profile is active; opt out with `--no-compressed`. |
-| 🔀 **Multiple URLs and parallel transfers** | Run URLs sequentially or set a concurrency limit, with independent output destinations. |
-| 💾 **TXT and JSON exports** | Keep complete response content in timestamped files, or print structured JSON for one response or an entire batch. |
-| 📦 **Ready-to-run packages** | Use Docker on Linux amd64/arm64 or native Linux bundles; macOS Apple Silicon downloads are experimental. |
-| ⌨️ **Zsh profile completion** | Press Tab to discover profiles and filter them by any prefix length. |
+| Feature                                     | What you can do                                                                                                              |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 🎭 **Browser profiles**                     | Choose among 38 presets covering Chrome, Firefox, Safari, Edge, Tor Browser, and mobile variants. Chrome 150 is the default. |
+| 🧰 **Familiar request options**             | Work with headers, request bodies, authentication, cookies, proxies, redirects, and selected curl write-out variables.       |
+| 📖 **Automatic response decoding**          | Receive decompressed response bytes while a browser profile is active; opt out with `--no-compressed`.                       |
+| 🔀 **Multiple URLs and parallel transfers** | Run URLs sequentially or set a concurrency limit, with independent output destinations.                                      |
+| 💾 **TXT and JSON exports**                 | Keep complete response content in timestamped files, or print structured JSON for one response or an entire batch.           |
+| 📦 **Ready-to-run packages**                | Use Docker on Linux amd64/arm64 or native Linux bundles; macOS Apple Silicon downloads are experimental.                     |
+| ⌨️ **Zsh profile completion**               | Press Tab to discover profiles and filter them by any prefix length.                                                         |
 
 **Jump to:** [Quick start](#quick-start) · [Examples](#http-examples) · [Profiles](#browser-profiles) · [Multiple URLs](#multiple-urls) · [Exports](#response-exports) · [Downloads](#platform-support) · [Documentation](#documentation)
 
@@ -129,15 +129,15 @@ HTTP errors do not make the transfer fail unless you enable `-f` or `--fail-with
 
 Use a complete profile ID before the first URL, or pass `--impersonate PROFILE`. A profile describes the request's browser settings; its target platform does not have to match your computer.
 
-| Browser | Example profile | Target |
-| --- | --- | --- |
-| Chrome | `chrome150` | Desktop; default profile |
-| Firefox | `firefox147` | Desktop |
-| Safari | `safari2601` | Desktop |
-| Edge | `edge101` | Desktop |
-| Chrome on Android | `chrome131_android` | Android |
-| Safari on iOS | `safari260_ios` | iOS |
-| Tor Browser | `tor145` | Desktop preset; does not route through Tor |
+| Browser           | Example profile     | Target                                     |
+| ----------------- | ------------------- | ------------------------------------------ |
+| Chrome            | `chrome150`         | Desktop; default profile                   |
+| Firefox           | `firefox147`        | Desktop                                    |
+| Safari            | `safari2601`        | Desktop                                    |
+| Edge              | `edge101`           | Desktop                                    |
+| Chrome on Android | `chrome131_android` | Android                                    |
+| Safari on iOS     | `safari260_ios`     | iOS                                        |
+| Tor Browser       | `tor145`            | Desktop preset; does not route through Tor |
 
 ```sh
 # Select Safari on iOS.
@@ -193,11 +193,11 @@ Sequential exit status follows the last transfer; parallel execution retains the
 
 Keep a response without choosing a filename each time, or pass a structured result to another tool. These output modes are Curlimp extensions:
 
-| Option | Where it goes | With multiple URLs |
-| --- | --- | --- |
-| `--txt` | Automatically named `.txt` file with the selected raw response bytes | One file per URL |
-| `--json-file` | Automatically named `.json` file with response fields and transfer metadata | One file per URL |
-| `--json-output` | A JSON response object on stdout | One array in input URL order |
+| Option          | Where it goes                                                               | With multiple URLs           |
+| --------------- | --------------------------------------------------------------------------- | ---------------------------- |
+| `--txt`         | Automatically named `.txt` file with the selected raw response bytes        | One file per URL             |
+| `--json-file`   | Automatically named `.json` file with response fields and transfer metadata | One file per URL             |
+| `--json-output` | A JSON response object on stdout                                            | One array in input URL order |
 
 **Choose what to capture:** body only by default, headers and body with `-i`, or HEAD headers with `-I`. Complete HTML stays in a single `body` string; non-UTF-8 bytes use explicit Base64. JSON includes HTTP `status` and transfer `exit_code`. Multi-URL results also include `transfer_index` and a normalized URL with credentials and fragment removed. `--json DATA` still sends request JSON.
 
@@ -239,13 +239,13 @@ Choose one export mode per invocation. Exports reject `-o`, `-D`, and `-w`; JSON
 
 **[Download the native bundles and SHA256SUMS →](https://github.com/JuanFontes/curlimp/releases/latest)**
 
-| Platform | Native download | Validation and availability |
-| --- | :---: | --- |
-| Linux x86-64 / amd64 | ✅ | Tested on Ubuntu 24.04 |
-| Linux ARM64 / aarch64 | ✅ | Tested on Ubuntu 24.04 ARM |
-| macOS Apple Silicon (M1 and newer) | 🧪 | Experimental; tested in macOS 15 CI |
-| macOS Intel | — | No native package |
-| Windows | — | No native package |
+| Platform                           | Native download | Validation and availability         |
+| ---------------------------------- | :-------------: | ----------------------------------- |
+| Linux x86-64 / amd64               |       ✅        | Tested on Ubuntu 24.04              |
+| Linux ARM64 / aarch64              |       ✅        | Tested on Ubuntu 24.04 ARM          |
+| macOS Apple Silicon (M1 and newer) |       🧪        | Experimental; tested in macOS 15 CI |
+| macOS Intel                        |        —        | No native package                   |
+| Windows                            |        —        | No native package                   |
 
 Verify the archive against `SHA256SUMS` and **keep the entire extracted bundle together**. Linux packages include their loader and runtime libraries; macOS includes its engine in `lib/`. The [installation guide](https://juanfontes.github.io/curlimp/docs/installation/) covers extraction, checksum verification, and adding `curlimp` to your `PATH`.
 
@@ -274,16 +274,16 @@ Completion currently covers browser profiles in Zsh, including after `--imperson
 
 The website contains the complete usage guides, supported options, examples, and implementation details.
 
-| Looking for… | Read |
-| --- | --- |
-| Your first request, downloads, or Docker setup | [Quick start](https://juanfontes.github.io/curlimp/docs/quick-start/) · [Installation](https://juanfontes.github.io/curlimp/docs/installation/) · [Docker](https://juanfontes.github.io/curlimp/docs/docker/) |
-| Available browsers and completion | [Profiles](https://juanfontes.github.io/curlimp/docs/profiles/) · [Zsh](https://juanfontes.github.io/curlimp/docs/completion/) |
-| Body, headers, redirects, and status codes | [Response selection](https://juanfontes.github.io/curlimp/docs/body-and-headers/) · [Redirects and errors](https://juanfontes.github.io/curlimp/docs/redirects-and-status/) |
-| JSON requests, forms, authentication, or cookies | [Requests](https://juanfontes.github.io/curlimp/docs/requests/) · [Authentication and cookies](https://juanfontes.github.io/curlimp/docs/authentication-and-cookies/) |
-| Batches, output files, or structured exports | [Multiple URLs](https://juanfontes.github.io/curlimp/docs/multiple-urls/) · [Files and pipelines](https://juanfontes.github.io/curlimp/docs/files/) · [TXT/JSON exports](https://juanfontes.github.io/curlimp/docs/response-exports/) |
-| Proxies, certificates, timeouts, or diagnostics | [Networking](https://juanfontes.github.io/curlimp/docs/networking/) |
-| Every supported option and known limit | [CLI reference](https://juanfontes.github.io/curlimp/docs/cli-reference/) · [Compatibility](https://juanfontes.github.io/curlimp/docs/compatibility/) |
-| Project purpose and native architecture | [Why Curlimp](https://juanfontes.github.io/curlimp/docs/why/) · [Architecture](https://juanfontes.github.io/curlimp/docs/architecture/) |
+| Looking for…                                     | Read                                                                                                                                                                                                                                  |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Your first request, downloads, or Docker setup   | [Quick start](https://juanfontes.github.io/curlimp/docs/quick-start/) · [Installation](https://juanfontes.github.io/curlimp/docs/installation/) · [Docker](https://juanfontes.github.io/curlimp/docs/docker/)                         |
+| Available browsers and completion                | [Profiles](https://juanfontes.github.io/curlimp/docs/profiles/) · [Zsh](https://juanfontes.github.io/curlimp/docs/completion/)                                                                                                        |
+| Body, headers, redirects, and status codes       | [Response selection](https://juanfontes.github.io/curlimp/docs/body-and-headers/) · [Redirects and errors](https://juanfontes.github.io/curlimp/docs/redirects-and-status/)                                                           |
+| JSON requests, forms, authentication, or cookies | [Requests](https://juanfontes.github.io/curlimp/docs/requests/) · [Authentication and cookies](https://juanfontes.github.io/curlimp/docs/authentication-and-cookies/)                                                                 |
+| Batches, output files, or structured exports     | [Multiple URLs](https://juanfontes.github.io/curlimp/docs/multiple-urls/) · [Files and pipelines](https://juanfontes.github.io/curlimp/docs/files/) · [TXT/JSON exports](https://juanfontes.github.io/curlimp/docs/response-exports/) |
+| Proxies, certificates, timeouts, or diagnostics  | [Networking](https://juanfontes.github.io/curlimp/docs/networking/)                                                                                                                                                                   |
+| Every supported option and known limit           | [CLI reference](https://juanfontes.github.io/curlimp/docs/cli-reference/) · [Compatibility](https://juanfontes.github.io/curlimp/docs/compatibility/)                                                                                 |
+| Project purpose and native architecture          | [Why Curlimp](https://juanfontes.github.io/curlimp/docs/why/) · [Architecture](https://juanfontes.github.io/curlimp/docs/architecture/)                                                                                               |
 
 <a id="current-compatibility"></a>
 

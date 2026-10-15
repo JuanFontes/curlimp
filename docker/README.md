@@ -107,11 +107,11 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" \
   --json-file -sS -I https://httpbin.org/status/200
 ```
 
-| Response options | TXT | JSON |
-| --- | --- | --- |
-| Default | Body bytes | `body` and `body_encoding` |
-| `-i` | Headers + body | Headers and body in separate fields |
-| `-I` | Headers only | Header fields; body omitted |
+| Response options | TXT            | JSON                                |
+| ---------------- | -------------- | ----------------------------------- |
+| Default          | Body bytes     | `body` and `body_encoding`          |
+| `-i`             | Headers + body | Headers and body in separate fields |
+| `-I`             | Headers only   | Header fields; body omitted         |
 
 JSON also includes `schema_version`, HTTP `status`, and transfer `exit_code`. The complete HTML stays in one body string, including scripts. Non-UTF-8 bytes use explicit Base64; headers retain duplicate names and line order. `-v` remains on stderr. Exported content is not redacted.
 
@@ -174,15 +174,15 @@ A profile configures TLS ClientHello characteristics, protocol negotiation, HTTP
 
 **Available profiles — 38 presets**
 
-| Browser | Target | Profile IDs |
-| --- | --- | --- |
-| Chrome | 🖥️ Desktop | `chrome99`, `chrome100`, `chrome101`, `chrome104`, `chrome107`, `chrome110`, `chrome116`, `chrome119`, `chrome120`, `chrome123`, `chrome124`, `chrome131`, `chrome133a`, `chrome136`, `chrome142`, `chrome145`, `chrome146`, `chrome150` |
-| Chrome | 🤖 Android | `chrome99_android`, `chrome131_android` |
-| Edge | 🖥️ Desktop | `edge99`, `edge101` |
-| Firefox | 🖥️ Desktop | `firefox133`, `firefox135`, `firefox144`, `firefox147` |
-| Safari | 🖥️ Desktop | `safari153`, `safari155`, `safari170`, `safari180`, `safari184`, `safari260`, `safari2601` |
-| Safari | 📱 iOS | `safari172_ios`, `safari180_ios`, `safari184_ios`, `safari260_ios` |
-| Tor Browser | 🖥️ Desktop | `tor145` |
+| Browser     | Target     | Profile IDs                                                                                                                                                                                                                              |
+| ----------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chrome      | 🖥️ Desktop | `chrome99`, `chrome100`, `chrome101`, `chrome104`, `chrome107`, `chrome110`, `chrome116`, `chrome119`, `chrome120`, `chrome123`, `chrome124`, `chrome131`, `chrome133a`, `chrome136`, `chrome142`, `chrome145`, `chrome146`, `chrome150` |
+| Chrome      | 🤖 Android | `chrome99_android`, `chrome131_android`                                                                                                                                                                                                  |
+| Edge        | 🖥️ Desktop | `edge99`, `edge101`                                                                                                                                                                                                                      |
+| Firefox     | 🖥️ Desktop | `firefox133`, `firefox135`, `firefox144`, `firefox147`                                                                                                                                                                                   |
+| Safari      | 🖥️ Desktop | `safari153`, `safari155`, `safari170`, `safari180`, `safari184`, `safari260`, `safari2601`                                                                                                                                               |
+| Safari      | 📱 iOS     | `safari172_ios`, `safari180_ios`, `safari184_ios`, `safari260_ios`                                                                                                                                                                       |
+| Tor Browser | 🖥️ Desktop | `tor145`                                                                                                                                                                                                                                 |
 
 Profiles are versioned presets, not an automatically refreshed browser list. Selecting a Tor Browser profile does not route requests through Tor. Version 0.4.0 removed `okhttp4_android` and its native `okhttp4` alias; requests selecting either name now fail before output files are opened.
 
@@ -311,7 +311,6 @@ docker run --rm juanfontes/curlimp --version
 
 Verbose output goes to stderr; response bodies go to stdout or `-o`. The runtime image is minimal and has no shell. Use CLI flags directly instead of overriding the entrypoint with `sh`.
 
-
 ### More everyday recipes
 
 Pass the request options directly after the image name:
@@ -358,13 +357,13 @@ Read the [body/header guide](https://juanfontes.github.io/curlimp/docs/body-and-
 
 ## 💻 Prefer a native download?
 
-| Platform | CPU | Native package |
-| --- | --- | --- |
-| Linux | amd64 | ✅ Available |
-| Linux | arm64 | ✅ Available |
-| macOS Apple Silicon | arm64 | ✅ Experimental |
-| macOS Intel | amd64 | Not available |
-| Windows | amd64 / arm64 | Not available |
+| Platform            | CPU           | Native package  |
+| ------------------- | ------------- | --------------- |
+| Linux               | amd64         | ✅ Available    |
+| Linux               | arm64         | ✅ Available    |
+| macOS Apple Silicon | arm64         | ✅ Experimental |
+| macOS Intel         | amd64         | Not available   |
+| Windows             | amd64 / arm64 | Not available   |
 
 [Download version 0.5.0 and SHA256SUMS](https://github.com/JuanFontes/curlimp/releases/tag/v0.5.0). Keep the entire extracted folder together. Linux includes its loader and runtime libraries; macOS includes its engine in `lib/`. macOS downloads are signed ad hoc and are not notarized. Windows and Intel Mac users can run the Linux image with a suitable Docker installation.
 

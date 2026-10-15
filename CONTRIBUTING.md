@@ -46,7 +46,35 @@ docker build -f docker/Dockerfile.build --platform linux/arm64 \
 
 ### CI cache and validation
 
-Runtime CI runs on pull requests, pushes to `main`, and manual dispatch. Branch pushes do not start a second build alongside their pull request. New validation runs cancel obsolete runs for the same pull request or branch; release publication remains serialized and is never cancelled this way.
+Every pull request starts with **Lint and formatting** in `pull-request.yml`. This job checks the entire maintained source set without compiling the native engine. Only a successful gate starts dependency review and the applicable runtime/site jobs. Failed or cancelled lint prevents those downstream jobs from starting. The final **PR checks** result requires all selected checks to succeed; an unexpected skip cannot make it pass.
+
+| Files                                                    | Fast check                                                              |
+| -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Rust                                                     | `cargo fmt --all -- --check` with Rust 1.90.0                           |
+| Markdown, YAML, JSON, Astro, JavaScript, TypeScript, CSS | Prettier with the website's locked version and Astro plugin             |
+| Python scripts and tests                                 | Ruff syntax and Pyflakes checks (`E9`, `F`)                             |
+| POSIX shell scripts                                      | ShellCheck, including sourced files                                     |
+| GitHub Actions                                           | actionlint, including workflow dependencies and embedded shell commands |
+
+Imported files under `vendor/` and third-party notices are excluded from automatic formatting. Python keeps its existing whitespace conventions. The C bridge still compiles with `-Wall -Wextra -Werror` in runtime builds; this fast gate does not replace compiler diagnostics, integration tests, or browser fingerprint validation. Zsh completion remains covered by the native completion tests.
+
+To run the same gate locally, install Rust 1.90.0 with its `rustfmt` component, Node.js 24, Python 3.11+, and [actionlint 1.7.12](https://github.com/rhysd/actionlint/releases/tag/v1.7.12). Then run:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r .github/requirements.txt
+npm ci --ignore-scripts --prefix website
+RUSTUP_TOOLCHAIN=1.90.0 python3 scripts/check-quality.py
+
+# Apply Rust and Prettier formatting, then run the remaining checks.
+RUSTUP_TOOLCHAIN=1.90.0 python3 scripts/check-quality.py --format
+python3 tests/pr_checks.py
+```
+
+PR routing depends on changed files, not the author's identity. Website dependencies and site-only changes validate the website without native builds. Builder images, native sources, CLI code, packaging, and runtime workflow changes still validate Linux amd64/arm64 and macOS: a Dependabot update can break those paths too. Unknown paths conservatively select runtime validation. Routing includes removals and both sides of a rename, and a missing comparison revision fails the gate.
+
+Runtime CI also runs on relevant pushes to `main` and manual dispatch. Its main-branch workflow identity and release artifacts are preserved for release promotion. Branch pushes do not start a second build alongside their pull request. New PR validation runs cancel obsolete runs for the same pull request; release publication remains serialized and is never cancelled this way. The site uses one reusable build workflow for PR validation and production packaging; deployment permissions remain in the separate main-branch Pages workflow.
 
 Linux uses GitHub Actions BuildKit caches separated by architecture. Input changes invalidate their dependent layers. Intermediate native build trees are removed before the installed engine layer is saved. The `test` and `test-minimal` stages explicitly bypass cache: parser, completion, HTTP/TLS/HTTP2, export and minimal-runtime tests execute on every run. The upstream `make checkbuild` feature assertions run against the installed native executable even on cache hits, on both Linux and macOS. Extracted download tests also always run.
 
@@ -175,7 +203,7 @@ nghttp2 remains pinned to 1.63.0 for legacy HTTP/2 priorities, with the official
 
 ### Automated dependency updates
 
-Dependabot proposes weekly updates for website npm packages, SHA-pinned GitHub Actions, and images in `docker/Dockerfile.build`. Compatible npm/action updates are grouped; major updates stay separate. Security update PRs are independent of that weekly schedule. No automatic merge is configured. The root Dockerfile stays aligned with release promotion, and native CMake pins are not edited by Dependabot. Add a Cargo entry if external Rust crates are introduced.
+Dependabot proposes weekly updates for website npm packages, SHA-pinned GitHub Actions, Python lint tools, and images in `docker/Dockerfile.build`. Compatible npm/action updates are grouped; major updates stay separate. Security update PRs are independent of that weekly schedule. No automatic merge is configured. The root Dockerfile stays aligned with release promotion, and native CMake pins are not edited by Dependabot. Add a Cargo entry if external Rust crates are introduced.
 
 The **Dependency review** check runs on every PR and rejects introduced known high/critical dependency vulnerabilities, including build/development dependencies. **Native reporting policy** runs the offline reporter tests. Reporting-only changes do not trigger native runtime builds; changes to build workflows, native inputs, and builder images retain their platform tests and cache policy. Dependabot PRs use read-only credentials and do not receive publication secrets. Review changes to Actions and Docker images carefully: automatic proposals are not a trust decision. Security alerts, secret scanning, push protection, private reporting, and required checks are repository settings, separate from the committed workflow files.
 
