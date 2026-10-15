@@ -31,6 +31,46 @@ static size_t header_cb(char *ptr, size_t size, size_t count, void *ctx) {
 int ci_global_init(void) { return (int)curl_global_init(CURL_GLOBAL_DEFAULT); }
 const char *ci_version(void) { return curl_version(); }
 
+typedef struct {
+  CURLSH *share;
+  CURL *jar;
+} ci_session;
+
+void ci_session_free(ci_session *session) {
+  if(!session) return;
+  if(session->jar) curl_easy_cleanup(session->jar);
+  if(session->share) curl_share_cleanup(session->share);
+  free(session);
+}
+
+ci_session *ci_session_new(const char *jar) {
+  ci_session *session = calloc(1, sizeof(*session));
+  if(!session) return NULL;
+  session->share = curl_share_init();
+  if(!session->share) goto fail;
+  const curl_lock_data shared[] = {CURL_LOCK_DATA_COOKIE, CURL_LOCK_DATA_DNS,
+                                 CURL_LOCK_DATA_SSL_SESSION, CURL_LOCK_DATA_CONNECT};
+  for(size_t i = 0; i < sizeof(shared) / sizeof(shared[0]); ++i)
+    if(curl_share_setopt(session->share, CURLSHOPT_SHARE, shared[i])) goto fail;
+  if(jar) {
+    session->jar = curl_easy_init();
+    if(!session->jar ||
+       curl_easy_setopt(session->jar, CURLOPT_SHARE, session->share) ||
+       curl_easy_setopt(session->jar, CURLOPT_COOKIEFILE, "") ||
+       curl_easy_setopt(session->jar, CURLOPT_COOKIEJAR, jar)) goto fail;
+  }
+  return session;
+fail:
+  ci_session_free(session);
+  return NULL;
+}
+
+int ci_session_attach(ci_session *session, ci_handle *h) {
+  CURLcode rc = curl_easy_setopt(h->easy, CURLOPT_SHARE, session->share);
+  if(!rc && session->jar) rc = curl_easy_setopt(h->easy, CURLOPT_COOKIEFILE, "");
+  return (int)rc;
+}
+
 void ci_free(ci_handle *h) {
   if(!h) return;
   curl_easy_cleanup(h->easy);

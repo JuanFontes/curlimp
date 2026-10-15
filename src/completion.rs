@@ -63,7 +63,7 @@ pub fn profile_candidates(words: &[String]) -> Vec<&'static str> {
                     break;
                 }
             }
-        } else if config.url.is_empty() && !positional_profile && profiles::contains(arg) {
+        } else if config.urls.is_empty() && !positional_profile && profiles::contains(arg) {
             positional_profile = true;
             config.impersonate = Some(arg.to_owned());
         } else {
@@ -76,7 +76,8 @@ pub fn profile_candidates(words: &[String]) -> Vec<&'static str> {
         None => {
             if let Some(prefix) = current.strip_prefix("--impersonate=") {
                 prefix
-            } else if config.url.is_empty() && !positional_profile && config.impersonate.is_none() {
+            } else if config.urls.is_empty() && !positional_profile && config.impersonate.is_none()
+            {
                 current.as_str()
             } else {
                 return Vec::new();

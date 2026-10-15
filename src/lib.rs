@@ -4,4 +4,5 @@ pub mod completion;
 pub mod engine;
 pub mod export;
 pub mod profiles;
+pub mod transfers;
 pub mod writeout;

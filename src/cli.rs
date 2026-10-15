@@ -32,14 +32,14 @@ pub enum Input {
 pub struct Config {
     pub inputs: Vec<Input>,
     pub export: Option<ExportMode>,
-    pub url: String,
+    pub urls: Vec<String>,
     pub silent: bool,
     pub show_error: bool,
     pub follow: bool,
     pub method: Option<String>,
     pub headers: Vec<String>,
     pub data: Vec<DataPart>,
-    pub output: Option<String>,
+    pub outputs: Vec<String>,
     pub timeout_ms: Option<i64>,
     pub connect_timeout_ms: Option<i64>,
     pub dump_header: Option<String>,
@@ -69,6 +69,26 @@ pub struct Config {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct TransferTarget {
+    pub index: usize,
+    pub url: String,
+    pub output: Option<String>,
+}
+
+impl Config {
+    pub fn targets(&self) -> impl Iterator<Item = TransferTarget> + '_ {
+        self.urls
+            .iter()
+            .enumerate()
+            .map(|(index, url)| TransferTarget {
+                index,
+                url: url.clone(),
+                output: self.outputs.get(index).cloned(),
+            })
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Action {
     Help,
     Version,
@@ -82,6 +102,7 @@ pub enum Action {
 pub struct CliError {
     pub code: i32,
     pub message: String,
+    pub reported: bool,
 }
 
 impl CliError {
@@ -89,6 +110,7 @@ impl CliError {
         Self {
             code,
             message: message.into(),
+            reported: false,
         }
     }
 }
@@ -187,15 +209,10 @@ fn milliseconds(value: &str) -> Result<i64, CliError> {
 }
 
 fn add_url(c: &mut Config, url: String) -> Result<(), CliError> {
-    if !c.url.is_empty() {
-        return Err(error(
-            "Curlimp supports one URL per invocation; multiple URLs and --next are not implemented",
-        ));
-    }
     if url.is_empty() {
         return Err(error("URL must not be empty"));
     }
-    c.url = url;
+    c.urls.push(url);
     Ok(())
 }
 
@@ -247,7 +264,7 @@ pub(crate) fn apply(
             }
             c.export = Some(mode);
         }
-        "output" => c.output = Some(v),
+        "output" => c.outputs.push(v),
         "dump-header" => c.dump_header = Some(v),
         "write-out" => {
             c.inputs.push(Input::WriteOut(v.clone()));
@@ -386,7 +403,7 @@ pub fn parse(args: Vec<String>) -> Result<Action, CliError> {
                     break;
                 }
             }
-        } else if c.url.is_empty() && crate::profiles::contains(&arg) {
+        } else if c.urls.is_empty() && crate::profiles::contains(&arg) {
             if positional_profile {
                 return Err(error(
                     "only one positional profile is allowed; use --impersonate to override it",
@@ -398,7 +415,7 @@ pub fn parse(args: Vec<String>) -> Result<Action, CliError> {
             add_url(&mut c, arg)?;
         }
     }
-    if c.url.is_empty() {
+    if c.urls.is_empty() {
         return Err(error("no URL specified; see --help"));
     }
     if c.head && !c.get && !c.data.is_empty() {
@@ -416,8 +433,11 @@ pub fn parse(args: Vec<String>) -> Result<Action, CliError> {
             "Curlimp does not support mixing --json with other data options",
         ));
     }
+    if c.urls.len() > 1 && c.export == Some(ExportMode::JsonOutput) {
+        return Err(error("multiple-URL JSON output is not available yet"));
+    }
     if let Some(mode) = c.export {
-        if c.output.is_some() || c.dump_header.is_some() || c.write_out.is_some() {
+        if !c.outputs.is_empty() || c.dump_header.is_some() || c.write_out.is_some() {
             return Err(error("export modes cannot be combined with --output (-o), --dump-header (-D), or --write-out (-w)"));
         }
         if mode == ExportMode::JsonOutput && c.cookie_jar.as_deref() == Some("-") {

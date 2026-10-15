@@ -1,21 +1,26 @@
 use crate::{
     body,
-    cli::{CliError, Config, DataKind},
+    cli::{CliError, Config, DataKind, TransferTarget},
     export::Export,
     writeout::Token,
 };
 use std::{
+    cell::RefCell,
     ffi::{c_char, c_int, c_long, c_void, CStr, CString},
     fs::File,
     io::{self, Write},
     panic::{catch_unwind, AssertUnwindSafe},
     ptr::NonNull,
+    rc::Rc,
     sync::OnceLock,
 };
 
 type Writer = unsafe extern "C" fn(*const u8, usize, *mut c_void) -> usize;
 extern "C" {
     fn ci_global_init() -> c_int;
+    fn ci_session_new(jar: *const c_char) -> *mut c_void;
+    fn ci_session_free(session: *mut c_void);
+    fn ci_session_attach(session: *mut c_void, handle: *mut c_void) -> c_int;
     fn ci_version() -> *const c_char;
     fn ci_new(body: Writer, header: Writer, state: *mut c_void) -> *mut c_void;
     fn ci_free(handle: *mut c_void);
@@ -273,205 +278,289 @@ fn has_header(headers: &[String], name: &str) -> bool {
     })
 }
 
-pub fn run(config: &Config) -> Result<(), CliError> {
-    // Validate formats and read inputs BEFORE opening/truncating output files.
-    let body::Prepared {
-        data,
-        headers,
-        format,
-    } = body::prepare(config)?;
-    let url = if config.get && data.is_some() {
-        body::with_query(&config.url, data.as_deref().unwrap_or_default())?
-    } else {
-        config.url.clone()
-    };
-    initialize()?;
-    // Apply profile validation on a sink handle before creating any output.
-    let mut handle = Handle::new(Output {
-        export: None,
-        body: Box::new(io::sink()),
-        header: None,
-        flush_chunks: false,
-        error: None,
-    })?;
-    if let Some(profile) = &config.impersonate {
-        crate::profiles::validate(profile)?;
-        handle.string("impersonate", profile)?;
+#[derive(Clone)]
+struct SharedWriter(Rc<RefCell<Box<dyn Write>>>);
+impl Write for SharedWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.borrow_mut().write(bytes)
     }
-    let export = config
-        .export
-        .map(|mode| Export::new(config, mode))
-        .transpose()?;
-    let json_export = export.as_ref().is_some_and(Export::is_json);
-    let output = Output {
-        export,
-        // curl preserves an existing -o file when no body is received and the
-        // transfer fails; -D has eager creation semantics instead.
-        body: if config.export.is_some() {
-            Box::new(io::sink())
-        } else {
-            writer(config.output.as_deref(), true)?
-        },
-        header: config
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.borrow_mut().flush()
+    }
+}
+
+pub(crate) struct Session {
+    raw: NonNull<c_void>,
+    header: Option<SharedWriter>,
+}
+impl Session {
+    pub(crate) fn new(config: &Config) -> Result<Self, CliError> {
+        initialize()?;
+        // Validate the live engine before opening any shared output.
+        let probe = Handle::new(Output {
+            export: None,
+            body: Box::new(io::sink()),
+            header: None,
+            flush_chunks: false,
+            error: None,
+        })?;
+        if let Some(profile) = &config.impersonate {
+            crate::profiles::validate(profile)?;
+            probe.string("impersonate", profile)?;
+        }
+        let jar = config.cookie_jar.as_deref().map(cstring).transpose()?;
+        let raw = NonNull::new(unsafe {
+            ci_session_new(jar.as_ref().map_or(std::ptr::null(), |s| s.as_ptr()))
+        })
+        .ok_or_else(|| CliError::new(27, "cannot create shared transfer state"))?;
+        let mut session = Self { raw, header: None };
+        session.header = config
             .dump_header
             .as_deref()
-            .map(|p| writer(Some(p), false))
-            .transpose()?,
-        flush_chunks: config.no_buffer,
-        error: None,
-    };
-    // Keep callback state at its original stable allocation.
-    *handle.output = output;
-
-    let impersonating = config.impersonate.is_some();
-    let decompress = config.compressed.unwrap_or(impersonating);
-    if !impersonating {
-        handle.string("user_agent", "curl/8.23.0")?;
+            .map(|p| writer(Some(p), false).map(|w| SharedWriter(Rc::new(RefCell::new(w)))))
+            .transpose()?;
+        Ok(session)
     }
-
-    handle.string("url", &url)?;
-    for (name, value) in [
-        ("follow", i64::from(config.follow)),
-        ("include", i64::from(config.include && !json_export)),
-        ("fail", i64::from(config.fail)),
-        ("verbose", i64::from(config.verbose)),
-        ("verify_peer", i64::from(!config.insecure)),
-        ("verify_host", if config.insecure { 0 } else { 2 }),
-        ("decode", i64::from(decompress)),
-    ] {
-        handle.number(name, value)?;
+}
+impl Drop for Session {
+    fn drop(&mut self) {
+        unsafe { ci_session_free(self.raw.as_ptr()) };
     }
-    for (name, value) in [
-        ("timeout_ms", config.timeout_ms),
-        ("connect_timeout_ms", config.connect_timeout_ms),
-        ("max_redirects", config.max_redirects),
-        ("http_version", config.http_version),
-    ] {
-        if let Some(value) = value {
+}
+
+pub(crate) struct Transfer {
+    handle: Handle,
+    pub index: usize,
+    fail_with_body: bool,
+    silent: bool,
+}
+
+pub(crate) struct TransferResult {
+    pub error: Option<CliError>,
+}
+
+impl Transfer {
+    pub(crate) fn prepare(
+        config: &Config,
+        prepared: &body::Prepared,
+        target: TransferTarget,
+        session: &Session,
+    ) -> Result<Self, CliError> {
+        let body::Prepared { data, headers, .. } = prepared;
+        let url = if config.get && data.is_some() {
+            body::with_query(&target.url, data.as_deref().unwrap_or_default())?
+        } else {
+            target.url.clone()
+        };
+        initialize()?;
+        // Apply profile validation on a sink handle before creating any output.
+        let mut handle = Handle::new(Output {
+            export: None,
+            body: Box::new(io::sink()),
+            header: None,
+            flush_chunks: false,
+            error: None,
+        })?;
+        if let Some(profile) = &config.impersonate {
+            crate::profiles::validate(profile)?;
+            handle.string("impersonate", profile)?;
+        }
+        let export = config
+            .export
+            .map(|mode| Export::new(config, mode, &url))
+            .transpose()?;
+        let json_export = export.as_ref().is_some_and(Export::is_json);
+        let output = Output {
+            export,
+            // curl preserves an existing -o file when no body is received and the
+            // transfer fails; -D has eager creation semantics instead.
+            body: if config.export.is_some() {
+                Box::new(io::sink())
+            } else {
+                writer(target.output.as_deref(), true)?
+            },
+            header: session
+                .header
+                .clone()
+                .map(|w| Box::new(w) as Box<dyn Write>),
+            flush_chunks: config.no_buffer,
+            error: None,
+        };
+        // Keep callback state at its original stable allocation.
+        *handle.output = output;
+        handle.check(unsafe { ci_session_attach(session.raw.as_ptr(), handle.raw.as_ptr()) })?;
+
+        let impersonating = config.impersonate.is_some();
+        let decompress = config.compressed.unwrap_or(impersonating);
+        if !impersonating {
+            handle.string("user_agent", "curl/8.23.0")?;
+        }
+
+        handle.string("url", &url)?;
+        for (name, value) in [
+            ("follow", i64::from(config.follow)),
+            ("include", i64::from(config.include && !json_export)),
+            ("fail", i64::from(config.fail)),
+            ("verbose", i64::from(config.verbose)),
+            ("verify_peer", i64::from(!config.insecure)),
+            ("verify_host", if config.insecure { 0 } else { 2 }),
+            ("decode", i64::from(decompress)),
+        ] {
             handle.number(name, value)?;
         }
-    }
-    let bundle_ca = std::env::var("CURL_CA_BUNDLE")
-        .ok()
-        .filter(|s| !s.is_empty());
-    let env_ca = bundle_ca.clone().or_else(|| {
-        std::env::var("SSL_CERT_FILE")
-            .ok()
-            .filter(|s| !s.is_empty())
-    });
-    for (name, value) in [
-        ("ca_cert", config.ca_cert.as_ref().or(env_ca.as_ref())),
-        ("user_agent", config.user_agent.as_ref()),
-        ("user", config.user.as_ref()),
-        ("proxy", config.proxy.as_ref()),
-        ("proxy_user", config.proxy_user.as_ref()),
-        ("no_proxy", config.no_proxy.as_ref()),
-        ("cookie_jar", config.cookie_jar.as_ref()),
-    ] {
-        if let Some(value) = value {
-            handle.string(name, value)?;
-        }
-    }
-    if let Some(referer) = &config.referer {
-        let initial = referer.strip_suffix(";auto");
-        handle.number("auto_referer", i64::from(initial.is_some()))?;
-        let initial = initial.unwrap_or(referer);
-        if !initial.is_empty() {
-            handle.string("referer", initial)?;
-        }
-    }
-    if config.ca_cert.is_none() && bundle_ca.is_none() {
-        if let Ok(path) = std::env::var("SSL_CERT_DIR") {
-            if !path.is_empty() {
-                handle.string("ca_path", &path)?;
+        for (name, value) in [
+            ("timeout_ms", config.timeout_ms),
+            ("connect_timeout_ms", config.connect_timeout_ms),
+            ("max_redirects", config.max_redirects),
+            ("http_version", config.http_version),
+        ] {
+            if let Some(value) = value {
+                handle.number(name, value)?;
             }
         }
-    }
-    if decompress {
-        handle.string("encoding", "")?;
-    }
-    let mut cookie_values = Vec::new();
-    for cookie in &config.cookies {
-        if cookie.contains('=') {
-            cookie_values.push(cookie.as_str());
+        let bundle_ca = std::env::var("CURL_CA_BUNDLE")
+            .ok()
+            .filter(|s| !s.is_empty());
+        let env_ca = bundle_ca.clone().or_else(|| {
+            std::env::var("SSL_CERT_FILE")
+                .ok()
+                .filter(|s| !s.is_empty())
+        });
+        for (name, value) in [
+            ("ca_cert", config.ca_cert.as_ref().or(env_ca.as_ref())),
+            ("user_agent", config.user_agent.as_ref()),
+            ("user", config.user.as_ref()),
+            ("proxy", config.proxy.as_ref()),
+            ("proxy_user", config.proxy_user.as_ref()),
+            ("no_proxy", config.no_proxy.as_ref()),
+        ] {
+            if let Some(value) = value {
+                handle.string(name, value)?;
+            }
+        }
+        if let Some(referer) = &config.referer {
+            let initial = referer.strip_suffix(";auto");
+            handle.number("auto_referer", i64::from(initial.is_some()))?;
+            let initial = initial.unwrap_or(referer);
+            if !initial.is_empty() {
+                handle.string("referer", initial)?;
+            }
+        }
+        if config.ca_cert.is_none() && bundle_ca.is_none() {
+            if let Ok(path) = std::env::var("SSL_CERT_DIR") {
+                if !path.is_empty() {
+                    handle.string("ca_path", &path)?;
+                }
+            }
+        }
+        if decompress {
+            handle.string("encoding", "")?;
+        }
+        let mut cookie_values = Vec::new();
+        for cookie in &config.cookies {
+            if cookie.contains('=') {
+                cookie_values.push(cookie.as_str());
+            } else {
+                handle.string("cookie_file", cookie)?;
+            }
+        }
+        if !cookie_values.is_empty() {
+            handle.string("cookie", &cookie_values.join(";"))?;
+        }
+        if config.data.iter().any(|p| p.kind == DataKind::Json) {
+            if !has_header(&headers, "content-type") {
+                handle.header("Content-Type: application/json")?;
+            }
+            if !has_header(&headers, "accept") {
+                handle.header("Accept: application/json")?;
+            }
+        } else if !impersonating && !has_header(&headers, "accept") {
+            // The impersonate fork removes libcurl's default Accept header. Restore
+            // curl CLI behavior only when no browser profile owns that default.
+            handle.header("Accept: */*")?;
+        }
+        for header in headers {
+            handle.header(header)?;
+        }
+        if !config.get {
+            if let Some(bytes) = data {
+                handle
+                    .check(unsafe { ci_body(handle.raw.as_ptr(), bytes.as_ptr(), bytes.len()) })?;
+            }
         } else {
-            handle.string("cookie_file", cookie)?;
+            handle.number("get", 1)?;
         }
-    }
-    if !cookie_values.is_empty() {
-        handle.string("cookie", &cookie_values.join(";"))?;
-    }
-    if config.data.iter().any(|p| p.kind == DataKind::Json) {
-        if !has_header(&headers, "content-type") {
-            handle.header("Content-Type: application/json")?;
+        if config.head {
+            handle.number("head", 1)?;
         }
-        if !has_header(&headers, "accept") {
-            handle.header("Accept: application/json")?;
+        if let Some(method) = &config.method {
+            handle.string("method", method)?;
         }
-    } else if !impersonating && !has_header(&headers, "accept") {
-        // The impersonate fork removes libcurl's default Accept header. Restore
-        // curl CLI behavior only when no browser profile owns that default.
-        handle.header("Accept: */*")?;
-    }
-    for header in &headers {
-        handle.header(header)?;
-    }
-    if !config.get {
-        if let Some(bytes) = &data {
-            handle.check(unsafe { ci_body(handle.raw.as_ptr(), bytes.as_ptr(), bytes.len()) })?;
-        }
-    } else {
-        handle.number("get", 1)?;
-    }
-    // ci_body uses COPYPOSTFIELDS; libcurl owns its copy during transfer.
-    drop(data);
-    if config.head {
-        handle.number("head", 1)?;
-    }
-    if let Some(method) = &config.method {
-        handle.string("method", method)?;
+
+        Ok(Self {
+            handle,
+            index: target.index,
+            fail_with_body: config.fail_with_body,
+            silent: config.silent,
+        })
     }
 
-    let mut code = unsafe { ci_perform(handle.raw.as_ptr()) };
-    if code == 0 && handle.info_number("http_code") != 304 {
-        // A successful empty response must still create/truncate -o. Calling
-        // write (not write_all) also opens a LazyFile for an empty slice.
-        if let Err(e) = handle.output.body.write(&[]) {
-            handle.output.error = Some(e.to_string());
-            code = 23;
-        }
+    pub(crate) fn raw(&self) -> *mut c_void {
+        self.handle.raw.as_ptr()
     }
-    if code == 0 && config.fail_with_body && handle.info_number("http_code") >= 400 {
-        code = 22;
+
+    pub(crate) fn perform(&mut self) -> i32 {
+        unsafe { ci_perform(self.raw()) }
     }
-    if let Err(e) = handle.output.body.flush() {
-        handle.output.error = Some(e.to_string());
-        code = 23;
-    }
-    if let Some(header) = &mut handle.output.header {
-        if let Err(e) = header.flush() {
-            handle.output.error = Some(e.to_string());
-            code = 23;
-        }
-    }
-    if handle.output.export.is_none() {
-        handle.write_out(&format, code)?;
-    }
-    if let Some(error) = &handle.output.error {
-        return Err(CliError::new(23, format!("writing output: {error}")));
-    }
-    let status = handle.info_number("http_code");
-    if let Some(export) = &mut handle.output.export {
-        let path = export
-            .finish(status, code)
-            .map_err(|e| CliError::new(23, format!("writing export: {e}")))?;
-        if let Some(path) = path {
-            if !config.silent {
-                let _ = writeln!(io::stderr().lock(), "Saved response to {}", path.display());
+
+    pub(crate) fn complete(
+        &mut self,
+        mut code: i32,
+        format: &[Token],
+    ) -> Result<TransferResult, CliError> {
+        let handle = &mut self.handle;
+        if code == 0 && handle.info_number("http_code") != 304 {
+            // A successful empty response must still create/truncate -o. Calling
+            // write (not write_all) also opens a LazyFile for an empty slice.
+            if let Err(e) = handle.output.body.write(&[]) {
+                handle.output.error = Some(e.to_string());
+                code = 23;
             }
         }
+        if code == 0 && self.fail_with_body && handle.info_number("http_code") >= 400 {
+            code = 22;
+        }
+        if let Err(e) = handle.output.body.flush() {
+            handle.output.error = Some(e.to_string());
+            code = 23;
+        }
+        if let Some(header) = &mut handle.output.header {
+            if let Err(e) = header.flush() {
+                handle.output.error = Some(e.to_string());
+                code = 23;
+            }
+        }
+        if handle.output.export.is_none() {
+            handle.write_out(format, code)?;
+        }
+        if let Some(error) = &handle.output.error {
+            return Err(CliError::new(23, format!("writing output: {error}")));
+        }
+        let status = handle.info_number("http_code");
+        if let Some(export) = &mut handle.output.export {
+            let path = export
+                .finish(status, code)
+                .map_err(|e| CliError::new(23, format!("writing export: {e}")))?;
+            if let Some(path) = path {
+                if !self.silent {
+                    let _ = writeln!(io::stderr().lock(), "Saved response to {}", path.display());
+                }
+            }
+        }
+        Ok(TransferResult {
+            error: handle.check(code).err(),
+        })
     }
-    handle.check(code)
 }
 
 pub fn list_profiles() -> Result<String, CliError> {

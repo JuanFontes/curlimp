@@ -1,6 +1,6 @@
 use curlimp::{
     cli::{self, Action, CliError},
-    completion, engine,
+    completion, engine, transfers,
 };
 use std::{
     ffi::OsString,
@@ -101,14 +101,14 @@ fn main() {
             selected_profile(&config, environment_profile, environment_headers).and_then(
                 |profile| {
                     config.impersonate = profile;
-                    engine::run(&config)
+                    transfers::run(&config)
                 },
             )
         }
         Err(error) => Err(error),
     };
     if let Err(error) = result {
-        if show_error {
+        if show_error && !error.reported {
             let _ = writeln!(
                 io::stderr().lock(),
                 "curlimp: ({}) {}",

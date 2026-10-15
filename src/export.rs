@@ -28,7 +28,7 @@ pub struct Export {
 }
 
 impl Export {
-    pub fn new(config: &Config, mode: ExportMode) -> Result<Self, CliError> {
+    pub fn new(config: &Config, mode: ExportMode, url: &str) -> Result<Self, CliError> {
         let mut timestamp = [0 as c_char; 32];
         // The bridge fills a bounded, NUL-terminated buffer using libc localtime.
         if unsafe { ci_local_timestamp(timestamp.as_mut_ptr(), timestamp.len()) } == 0 {
@@ -39,7 +39,7 @@ impl Export {
             mode,
             include_headers: config.include,
             head: config.head,
-            stem: format!("{timestamp}_{}", url_slug(&config.url)),
+            stem: format!("{timestamp}_{}", url_slug(url)),
             path: None,
             file: None,
             body: Vec::new(),
