@@ -43,12 +43,13 @@ RUN --network=none LD_LIBRARY_PATH=/opt/native/lib make -f /native-check.mk chec
 COPY tests tests
 COPY scripts/fetch-verified.sh scripts/prepare-engine.sh scripts/
 RUN --network=none python3 tests/vendor_engine.py && python3 tests/source_download.py
-RUN cargo test --locked --test cli
+RUN cargo test --locked --lib --test cli
 RUN --network=none python3 tests/build_tracking.py
 RUN --network=none CLI=/src/target/release/curlimp python3 tests/completion.py
 RUN --network=none CLI=/src/target/release/curlimp python3 tests/zsh_completion.py
 RUN REQUIRE_HTTP2=1 CLI=/src/target/release/curlimp python3 tests/compat.py
 RUN CLI=/src/target/release/curlimp python3 tests/exports.py
+RUN REFERENCE_CURL=/opt/native/bin/curl-impersonate CLI=/src/target/release/curlimp python3 tests/transfers.py
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS runtime-debian
 # Only this runtime layer consumes the refresh generation; native compilation stays cached.
@@ -79,6 +80,7 @@ RUN mkdir -p /runtime-rootfs/dev && mknod -m 666 /runtime-rootfs/dev/null c 1 3 
     && printf '127.0.0.1 localhost\n::1 localhost\n' > /runtime-rootfs/etc/hosts
 RUN TMPDIR=/runtime-rootfs/tmp REQUIRE_HTTP2=1 CLI=/src/tests/chroot_cli.py python3 tests/compat.py
 RUN TMPDIR=/runtime-rootfs/tmp CLI=/src/tests/chroot_cli.py python3 tests/exports.py
+RUN TMPDIR=/runtime-rootfs/tmp CLI=/src/tests/chroot_cli.py python3 tests/transfers.py
 
 # Optional filesystem export for inspecting or distributing runtime artifacts.
 FROM scratch AS runtime-artifacts

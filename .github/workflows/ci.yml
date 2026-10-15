@@ -137,6 +137,7 @@ jobs:
           REQUIRE_HTTP2=1 python3 tests/compat.py
           python3 tests/release_tls.py
           python3 tests/exports.py
+          python3 tests/transfers.py
           python3 tests/completion.py
           python3 tests/zsh_completion.py
           "$CLI" -sS --fail \
@@ -218,7 +219,7 @@ jobs:
         env:
           CURL_IMPERSONATE_DIR: ${{ runner.temp }}/macos-build/native
           CARGO_TARGET_DIR: ${{ runner.temp }}/macos-build/target
-        run: cargo test --release --locked --test cli
+        run: cargo test --release --locked --lib --test cli
       - name: Package macOS Apple Silicon download
         run: |
           python3 scripts/package-macos.py \
@@ -239,6 +240,7 @@ jobs:
           REQUIRE_HTTP2=1 python3 tests/compat.py
           python3 tests/release_tls.py
           python3 tests/exports.py
+          python3 tests/transfers.py
           python3 tests/completion.py
           python3 tests/zsh_completion.py
           "$CLI" -sS --fail \

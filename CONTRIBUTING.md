@@ -76,7 +76,7 @@ Override `RUNTIME_IMAGE` to select another runtime image. An inaccessible image 
 
 `src/profiles.txt` is the catalog consumed by the parser, completion engine, validated profile listing and website. `src/completion.rs` uses literal prefix matching and the parser's option arities. `completions/_curlimp` only connects Zsh to that Rust logic. No shell script carries a separate profile list. The hidden `--complete-profiles` action is an internal shell integration interface, not a request mode.
 
-After building the CLI, run `cargo test --locked --test cli`, then `CLI=/absolute/path/to/curlimp python3 tests/completion.py` and `CLI=/absolute/path/to/curlimp python3 tests/zsh_completion.py`. The latter opens a clean Zsh PTY to verify actual Tab insertion, menu selection and Enter behavior. These checks need Python 3.11+ and Zsh. Completion does not configure the user's shell or run HTTP requests.
+After building the CLI, run `cargo test --locked --lib --test cli`, then `CLI=/absolute/path/to/curlimp python3 tests/completion.py` and `CLI=/absolute/path/to/curlimp python3 tests/zsh_completion.py`. The latter opens a clean Zsh PTY to verify actual Tab insertion, menu selection and Enter behavior. These checks need Python 3.11+ and Zsh. Completion does not configure the user's shell or run HTTP requests.
 
 ### Export artifacts
 
@@ -124,7 +124,7 @@ sh scripts/build-macos.sh "$workspace" 4
 
 # Test the CLI and the packager's real Mach-O fixtures.
 CURL_IMPERSONATE_DIR="$workspace/native" CARGO_TARGET_DIR="$workspace/target" \
-  cargo test --release --locked --test cli
+  cargo test --release --locked --lib --test cli
 python3 tests/macos_package.py
 
 # Package a clean, committed checkout using its actual source revision.
@@ -141,6 +141,7 @@ export PATH="$(brew --prefix openssl@3)/bin:$(brew --prefix nghttp2)/bin:$PATH"
 REQUIRE_HTTP2=1 python3 tests/compat.py
 python3 tests/release_tls.py
 python3 tests/exports.py
+python3 tests/transfers.py
 "$CLI" -sS --fail \
   --connect-timeout 10 --max-time 30 -o /dev/null https://httpbin.org/status/200
 ```
@@ -178,7 +179,7 @@ Source builds download pinned dependency archives and use container registries a
 
 ### Validation scope
 
-`test-minimal` runs source integrity checks, parser tests, and local HTTP/TLS/HTTP2 integration tests, then repeats the integration tests inside the assembled runtime filesystem with `chroot`. Test tools stay outside the final image. The suite checks all 38 profile names against the compiled engine, the default Chrome profile, explicit/environment precedence, and `--no-impersonate`. Compression checks cover automatic gzip/deflate decoding, explicit overrides, header order and values, binary output, and opt-in decoding without a profile. Curl-default comparisons explicitly disable impersonation; default-browser requests are checked separately, including HTTP2. It does not compare browser fingerprints or establish HTTP/3 fidelity. Compatibility assertions use local fixtures; the download workflow also runs one bounded public HTTPS smoke check.
+`test-minimal` runs source integrity checks, parser tests, and local HTTP/TLS/HTTP2 integration tests, then repeats the integration tests inside the assembled runtime filesystem with `chroot`. Test tools stay outside the final image. The transfer suite checks sequential order, parallel admission bounds, file pairing, shared cookies, mixed failures, ordered JSON, temporary-storage errors, and bounded export resources. The suite checks all 38 profile names against the compiled engine, the default Chrome profile, explicit/environment precedence, and `--no-impersonate`. Compression checks cover automatic gzip/deflate decoding, explicit overrides, header order and values, binary output, and opt-in decoding without a profile. Curl-default comparisons explicitly disable impersonation; default-browser requests are checked separately, including HTTP2. It does not compare browser fingerprints or establish HTTP/3 fidelity. Compatibility assertions use local fixtures; the download workflow also runs one bounded public HTTPS smoke check.
 
 ## Validate your change
 

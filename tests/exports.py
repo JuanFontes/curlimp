@@ -48,6 +48,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == '/echo':
             body = self.rfile.read(int(self.headers.get('Content-Length', '0')))
         if path == '/large': body = b'x' * (64 * 1024 * 1024 + 1)
+        if path == '/boundary-text': body = b'a' * 65535 + 'é☃😀'.encode() + b'\nend'
+        if path == '/boundary-binary': body = b'a' * 65535 + b'\xff\x80\x00\n'
+        if path == '/long-headers':
+            extra.extend([('X-Long', 'a' * 40000), ('X-Long', 'b' * 40000), ('X-Opaque', '\xff')])
         self.send_response(code)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('X-Repeat', 'one')
@@ -104,6 +108,19 @@ class Exports(unittest.TestCase):
         self.assertEqual(doc['body'].encode(), HTML)
         self.assertNotIn('headers', doc)
         self.assertEqual(result.stderr, b'')
+
+    def test_spooled_fields_preserve_utf8_binary_and_long_header_boundaries(self):
+        for path, expected in [('/boundary-text', b'a' * 65535 + 'é☃😀'.encode() + b'\nend'),
+                               ('/boundary-binary', b'a' * 65535 + b'\xff\x80\x00\n')]:
+            doc, _ = self.report(path=path)
+            actual = doc['body'].encode() if doc['body_encoding'] == 'utf-8' else base64.b64decode(doc['body'])
+            self.assertEqual(actual, expected)
+        doc, _ = self.report('-i', path='/long-headers')
+        self.assertEqual(doc['headers_encoding'], 'base64')
+        headers = [base64.b64decode(value) for value in doc['headers']]
+        self.assertIn(b'X-Long: ' + b'a' * 40000 + b'\r\n', headers)
+        self.assertIn(b'X-Long: ' + b'b' * 40000 + b'\r\n', headers)
+        self.assertIn(b'X-Opaque: \xff\r\n', headers)
 
     def test_include_and_head_select_fields_and_keep_duplicate_headers(self):
         for flag in ['-i', '-I']:

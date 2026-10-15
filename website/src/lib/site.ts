@@ -45,6 +45,7 @@ export const groups = [
       { slug: 'requests', title: 'Requests & JSON' },
       { slug: 'authentication-and-cookies', title: 'Authentication & cookies' },
       { slug: 'files', title: 'Files & pipelines' },
+      { slug: 'multiple-urls', title: 'Multiple URLs & parallel' },
       { slug: 'response-exports', title: 'TXT & JSON exports' },
       { slug: 'networking', title: 'Networking & diagnostics' },
       { slug: 'cli-reference', title: 'CLI reference' },

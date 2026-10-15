@@ -19,14 +19,16 @@ const options = cliHelp
   <h2>Command shape</h2>
   <CodeBlock
     code={
-      'curlimp [options] [PROFILE] <URL> [options]\ncurlimp --help\ncurlimp --version'
+      'curlimp [options] [PROFILE] <URL>... [options]\ncurlimp --help\ncurlimp --version'
     }
     lang="text"
     label="Command syntax"
   />
   <p>
-    One HTTP(S) URL per invocation. With <a href={docHref('docker')}>Docker</a>,
-    put the same request options after the image name.
+    One or more HTTP(S) URLs per invocation, executed sequentially unless{' '}
+    <code>--parallel</code> is enabled. With{' '}
+    <a href={docHref('docker')}>Docker</a>, put the same request options after
+    the image name.
   </p>
   <h2>Supported options</h2>
   <p>
@@ -103,6 +105,14 @@ const options = cliHelp
     from a file. Variables not listed here fail explicitly; do not assume the
     entire curl write-out catalog exists.
   </p>
+  <h2>Multiple transfers</h2>
+  <p>
+    The first <code>-o</code> belongs to the first URL, the second to the second
+    URL, regardless of where they appear. Missing destinations and{' '}
+    <code>-o -</code> use stdout. Parallel raw stdout can interleave. See{' '}
+    <a href={docHref('multiple-urls')}>multiple URLs and parallel transfers</a>{' '}
+    for examples, shared options, and exit-code rules.
+  </p>
   <h2>Output and errors</h2>
   <p>
     Without an export mode, response bodies stream to stdout or <code>-o</code>,
@@ -118,10 +128,10 @@ const options = cliHelp
   </p>
   <h2>Unsupported is explicit</h2>
   <p>
-    Multiple URLs, <code>--next</code>, <code>--config</code>,{' '}
-    <code>.curlrc</code>, URL globbing, multipart uploads, retries and parallel
-    transfers are not implemented. <code>-q</code> is accepted, but there is no
-    config-file loading to disable.
+    <code>--next</code>, <code>--config</code>, <code>.curlrc</code>, URL
+    globbing, multipart uploads, retries, <code>--parallel-immediate</code>, and{' '}
+    <code>--parallel-max-host</code> are not implemented. <code>-q</code> is
+    accepted, but there is no config-file loading to disable.
   </p>
   <p>
     Read the{' '}

@@ -54,12 +54,15 @@ class CompletionTests(unittest.TestCase):
         for words in [('-sSI', 'firefox14'), ('-o', 'file', 'firefox14'),
                       ('-sofile', 'firefox14'), ('--output=file', 'firefox14'),
                       ('--impersonate', 'firefox14'), ('--impersonate=firefox14',),
+                      ('-Z', 'firefox14'), ('--parallel-max', '2', 'firefox14'),
+                      ('--parallel-max=2', 'firefox14'),
                       ('chrome150', '--impersonate', 'firefox14')]:
             with self.subTest(words=words):
                 self.assertEqual(self.candidates(*words), ['firefox144', 'firefox147'])
 
     def test_no_profiles_for_option_values_urls_or_completed_selection(self):
         for words in [('-o', 'fi'), ('-sofi',), ('--output=fi',),
+                      ('--parallel-max', 'fi'), ('--parallel-max=fi',),
                       ('--json', 'fi'), ('-H', 'fi'), ('--url', 'fi'),
                       ('--url=fi',), ('--', 'fi'), ('chrome150', 'fi'),
                       ('--impersonate', 'chrome150', 'fi'),

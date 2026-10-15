@@ -31,6 +31,46 @@ static size_t header_cb(char *ptr, size_t size, size_t count, void *ctx) {
 int ci_global_init(void) { return (int)curl_global_init(CURL_GLOBAL_DEFAULT); }
 const char *ci_version(void) { return curl_version(); }
 
+typedef struct {
+  CURLSH *share;
+  CURL *jar;
+} ci_session;
+
+void ci_session_free(ci_session *session) {
+  if(!session) return;
+  if(session->jar) curl_easy_cleanup(session->jar);
+  if(session->share) curl_share_cleanup(session->share);
+  free(session);
+}
+
+ci_session *ci_session_new(const char *jar) {
+  ci_session *session = calloc(1, sizeof(*session));
+  if(!session) return NULL;
+  session->share = curl_share_init();
+  if(!session->share) goto fail;
+  const curl_lock_data shared[] = {CURL_LOCK_DATA_COOKIE, CURL_LOCK_DATA_DNS,
+                                 CURL_LOCK_DATA_SSL_SESSION, CURL_LOCK_DATA_CONNECT};
+  for(size_t i = 0; i < sizeof(shared) / sizeof(shared[0]); ++i)
+    if(curl_share_setopt(session->share, CURLSHOPT_SHARE, shared[i])) goto fail;
+  if(jar) {
+    session->jar = curl_easy_init();
+    if(!session->jar ||
+       curl_easy_setopt(session->jar, CURLOPT_SHARE, session->share) ||
+       curl_easy_setopt(session->jar, CURLOPT_COOKIEFILE, "") ||
+       curl_easy_setopt(session->jar, CURLOPT_COOKIEJAR, jar)) goto fail;
+  }
+  return session;
+fail:
+  ci_session_free(session);
+  return NULL;
+}
+
+int ci_session_attach(ci_session *session, ci_handle *h) {
+  CURLcode rc = curl_easy_setopt(h->easy, CURLOPT_SHARE, session->share);
+  if(!rc && session->jar) rc = curl_easy_setopt(h->easy, CURLOPT_COOKIEFILE, "");
+  return (int)rc;
+}
+
 void ci_free(ci_handle *h) {
   if(!h) return;
   curl_easy_cleanup(h->easy);
@@ -57,6 +97,7 @@ ci_handle *ci_new(ci_writer body, ci_writer header, void *userdata) {
   INIT(CURLOPT_WRITEDATA, h);
   INIT(CURLOPT_HEADERFUNCTION, header_cb);
   INIT(CURLOPT_HEADERDATA, h);
+  INIT(CURLOPT_PRIVATE, h);
 #undef INIT
   return h;
 }
@@ -121,10 +162,36 @@ int ci_body(ci_handle *h, const unsigned char *data, size_t len) {
   return (int)curl_easy_setopt(h->easy, CURLOPT_COPYPOSTFIELDS, (const char *)data);
 }
 
-int ci_perform(ci_handle *h) {
-  CURLcode rc = curl_easy_setopt(h->easy, CURLOPT_HTTPHEADER, h->headers);
-  return rc ? (int)rc : (int)curl_easy_perform(h->easy);
+CURLM *ci_multi_new(void) { return curl_multi_init(); }
+void ci_multi_free(CURLM *multi) { curl_multi_cleanup(multi); }
+int ci_multi_add(CURLM *multi, ci_handle *h) {
+  if(curl_easy_setopt(h->easy, CURLOPT_HTTPHEADER, h->headers))
+    return CURLM_BAD_EASY_HANDLE;
+  return (int)curl_multi_add_handle(multi, h->easy);
 }
+int ci_multi_remove(CURLM *multi, ci_handle *h) {
+  return (int)curl_multi_remove_handle(multi, h->easy);
+}
+int ci_multi_perform(CURLM *multi) {
+  int running;
+  return (int)curl_multi_perform(multi, &running);
+}
+int ci_multi_poll(CURLM *multi) { return (int)curl_multi_poll(multi, NULL, 0, 1000, NULL); }
+ci_handle *ci_multi_next(CURLM *multi, int *code) {
+  int remaining;
+  CURLMsg *message;
+  while((message = curl_multi_info_read(multi, &remaining))) {
+    if(message->msg == CURLMSG_DONE) {
+      ci_handle *h = NULL;
+      curl_easy_getinfo(message->easy_handle, CURLINFO_PRIVATE, &h);
+      *code = (int)message->data.result;
+      return h;
+    }
+  }
+  return NULL;
+}
+const char *ci_multi_error(int code) { return curl_multi_strerror((CURLMcode)code); }
+int ci_multi_exit_code(int code) { return code == CURLM_OUT_OF_MEMORY ? CURLE_OUT_OF_MEMORY : CURLE_FAILED_INIT; }
 
 const char *ci_error(ci_handle *h, int code) {
   return h->error[0] ? h->error : curl_easy_strerror((CURLcode)code);
@@ -160,6 +227,21 @@ int ci_local_timestamp(char *buffer, size_t capacity) {
 }
 
 /* Only validated host/path bytes may be used in an export filename. */
+char *ci_report_url(const char *url) {
+  CURLU *parsed = curl_url();
+  char *result = NULL;
+  if(parsed && !curl_url_set(parsed, CURLUPART_URL, url, CURLU_GUESS_SCHEME | CURLU_PATH_AS_IS) &&
+     !curl_url_set(parsed, CURLUPART_USER, NULL, 0) &&
+     !curl_url_set(parsed, CURLUPART_PASSWORD, NULL, 0) &&
+     !curl_url_set(parsed, CURLUPART_OPTIONS, NULL, 0) &&
+     !curl_url_set(parsed, CURLUPART_FRAGMENT, NULL, 0))
+    curl_url_get(parsed, CURLUPART_URL, &result, 0);
+  curl_url_cleanup(parsed);
+  return result;
+}
+
+void ci_string_free(char *value) { curl_free(value); }
+
 int ci_url_host_path(const char *url, char *buffer, size_t capacity) {
   CURLU *parsed = curl_url();
   char *host = NULL, *path = NULL;

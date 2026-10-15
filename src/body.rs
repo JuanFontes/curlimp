@@ -56,9 +56,17 @@ pub fn headers(values: &[String]) -> Result<Vec<String>, CliError> {
     Ok(result)
 }
 
-pub fn with_query(url: &str, body: &[u8]) -> Result<String, CliError> {
+fn query_data(body: &[u8]) -> Result<&str, CliError> {
     let query = std::str::from_utf8(body)
         .map_err(|_| CliError::new(2, "--get query data must be UTF-8"))?;
+    if query.contains('\0') {
+        return Err(CliError::new(2, "--get query data must not contain NUL"));
+    }
+    Ok(query)
+}
+
+pub fn with_query(url: &str, body: &[u8]) -> Result<String, CliError> {
+    let query = query_data(body)?;
     let (base, fragment) = url
         .split_once('#')
         .map_or((url, None), |(u, f)| (u, Some(f)));
@@ -120,6 +128,12 @@ pub fn prepare(config: &crate::cli::Config) -> Result<Prepared, CliError> {
         }
     }
     prepared.format = crate::writeout::parse(&write_out)?;
+    // Reject shared query data before creating header destinations or cookie jars.
+    if config.get {
+        if let Some(data) = &prepared.data {
+            query_data(data)?;
+        }
+    }
     Ok(prepared)
 }
 

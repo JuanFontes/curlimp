@@ -22,7 +22,7 @@ def inside(argument):
 cwd = os.getcwd()
 arguments = [inside(arg) for arg in sys.argv[1:]]
 # CA fixtures may also arrive through environment overrides, not just argv.
-for name in ('CURL_CA_BUNDLE', 'SSL_CERT_FILE', 'SSL_CERT_DIR'):
+for name in ('CURL_CA_BUNDLE', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'TMPDIR'):
     if name in os.environ:
         os.environ[name] = os.pathsep.join(inside(path) for path in os.environ[name].split(os.pathsep))
 os.chroot(ROOT)

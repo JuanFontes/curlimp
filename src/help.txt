@@ -1,7 +1,7 @@
 Curlimp — browser impersonation with a Rust CLI and a modified libcurl engine
-Usage: curlimp [options] [PROFILE] <URL> [options]
+Usage: curlimp [options] [PROFILE] <URL>... [options]
 Browser impersonation is enabled by default with chrome150.
-An exact profile name before the URL is shorthand for --impersonate PROFILE.
+An exact profile name before the first URL is shorthand for --impersonate PROFILE.
 Flags may appear before or after the profile. Use --url HOST or http://HOST
 when a hostname has the same name as a profile. Prefixes are for Tab completion,
 not abbreviated profile names. Use --completions zsh for the completion script.
@@ -34,14 +34,22 @@ Transport:
   -x, --proxy URL              HTTP/SOCKS proxy
   -U, --proxy-user USER:PASS    Proxy credentials
       --noproxy HOSTS          Comma-separated proxy bypass list
-  -m, --max-time SECONDS       Overall timeout (fractional values allowed)
+  -m, --max-time SECONDS       Per-transfer timeout (fractional values allowed)
       --connect-timeout SEC    Connection timeout
       --cacert FILE            CA certificate bundle
   -k, --insecure               Explicitly disable certificate verification
       --http1.0|--http1.1|--http2|--http3|--http3-only
 
+Transfers:
+  -Z, --parallel              Run transfers concurrently (default: sequential)
+      --no-parallel           Disable parallel execution
+      --parallel-max N        Concurrent transfers (default: 50; max: 65535)
+      --url URL               Add a URL (repeatable)
+  One profile and one set of request options apply to every URL.
+  --parallel-max alone does not enable parallelism; 0 selects the default.
+
 Output:
-  -o, --output FILE            Body destination; - means stdout
+  -o, --output FILE            Nth destination for Nth URL; - means stdout
   -D, --dump-header FILE       Header destination; - means stdout
   -i, --include                Include response headers in body output
   -f, --fail                   HTTP >= 400: exit 22 and suppress body
@@ -56,21 +64,24 @@ Output:
   -V, --version                CLI and actual engine versions
 
 Response exports (project extensions, choose one):
-      --txt                    Save selected response bytes to an automatic .txt file
-      --json-output            Print one structured JSON response object to stdout
-      --json-file              Save that JSON object to an automatic .json file
+      --txt                    Save selected bytes to an automatic .txt file per URL
+      --json-output            Print a JSON object, or ordered array for multiple URLs
+      --json-file              Save an automatic .json file per URL
   Default: body only; -i adds headers; -I selects headers only. -v stays on stderr.
   Files use the current directory; Docker needs a mounted directory to retain them.
   Export modes reject -o, -D and -w; JSON modes also reject -N.
   --json-output rejects --cookie-jar - to keep stdout a single JSON document.
-  JSON buffers up to 64 MiB and uses explicit base64 for non-UTF-8 bytes.
+  JSON uses private temporary storage, a 64 MiB limit per response, and base64 for non-UTF-8 bytes.
   --json DATA still sends a request body; it is not an output selector.
 
 Write-out: http_code, response_code, url_effective, content_type,
            num_redirects, http_version, time_total, exitcode; %% and \n \r \t.
 
-Curlimp supports a subset of curl: one HTTP(S) URL, no .curlrc/--config/--next,
-URL globbing, multipart, streaming uploads, retry, parallelism or progress meter.
+Curlimp supports multiple HTTP(S) URLs and a subset of curl: no .curlrc/--config/--next,
+URL globbing, multipart, streaming uploads, retry, --parallel-immediate,
+--parallel-max-host or progress meter. Raw parallel stdout may interleave.
+Sequential transfer status follows the last transfer; parallel retains the first failure.
+Export storage failures return 23. Each JSON result records its own transfer status.
 Profile priority: last positional profile or --impersonate/--no-impersonate flag, CURL_IMPERSONATE,
 then chrome150. The default is pinned to the release, not updated at runtime.
 CURL_IMPERSONATE_HEADERS=no disables headers for an environment/default profile;
@@ -79,4 +90,4 @@ Compression priority: last --compressed/--no-compressed flag, then profile defau
 With --no-impersonate, decoding is opt-in via --compressed.
 The unverified, inconsistent OkHttp profile and its okhttp4 alias are retired.
 Unknown flags and write-out variables fail explicitly.
-Request bodies are buffered. Ordinary output and TXT exports stream bytes; JSON exports buffer up to 64 MiB.
+Request bodies are buffered. Ordinary output and TXT exports stream bytes; JSON exports use private temporary files (TMPDIR) and require writable temporary storage.

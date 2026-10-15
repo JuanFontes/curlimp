@@ -1,16 +1,22 @@
 //! Opt-in response exports; ordinary curl-style output stays in the engine.
-use crate::cli::{CliError, Config, ExportMode};
+use crate::{
+    cli::{CliError, Config, ExportMode},
+    export_field::{self, Field},
+    spool,
+};
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::{
     ffi::{c_char, c_int, CStr, CString},
     fs::{File, OpenOptions},
-    io::{self, BufWriter, Write},
+    io::{self, BufWriter, Read, Seek, SeekFrom, Write},
     path::PathBuf,
 };
 
 extern "C" {
     fn ci_local_timestamp(buffer: *mut c_char, capacity: usize) -> c_int;
+    fn ci_report_url(url: *const c_char) -> *mut c_char;
+    fn ci_string_free(value: *mut c_char);
     fn ci_url_host_path(url: *const c_char, buffer: *mut c_char, capacity: usize) -> c_int;
 }
 
@@ -23,12 +29,13 @@ pub struct Export {
     stem: String,
     path: Option<PathBuf>,
     file: Option<File>,
-    body: Vec<u8>,
-    headers: Vec<u8>,
+    body: Field,
+    headers: Field,
+    identity: Option<TransferIdentity>,
 }
 
 impl Export {
-    pub fn new(config: &Config, mode: ExportMode) -> Result<Self, CliError> {
+    pub fn new(config: &Config, mode: ExportMode, url: &str) -> Result<Self, CliError> {
         let mut timestamp = [0 as c_char; 32];
         // The bridge fills a bounded, NUL-terminated buffer using libc localtime.
         if unsafe { ci_local_timestamp(timestamp.as_mut_ptr(), timestamp.len()) } == 0 {
@@ -39,11 +46,12 @@ impl Export {
             mode,
             include_headers: config.include,
             head: config.head,
-            stem: format!("{timestamp}_{}", url_slug(&config.url)),
+            stem: format!("{timestamp}_{}", url_slug(url)),
             path: None,
             file: None,
-            body: Vec::new(),
-            headers: Vec::new(),
+            body: Field::default(),
+            headers: Field::default(),
+            identity: None,
         })
     }
 
@@ -106,7 +114,7 @@ impl Export {
         if !header && self.head {
             return Ok(());
         }
-        let used = self.body.len() + self.headers.len();
+        let used = self.body.len + self.headers.len;
         if bytes.len() > JSON_LIMIT.saturating_sub(used) {
             return Err(io::Error::other(
                 "JSON export exceeds 64 MiB; use --txt or ordinary -o for larger responses",
@@ -117,14 +125,67 @@ impl Export {
         } else {
             &mut self.body
         };
-        destination
-            .try_reserve(bytes.len())
-            .map_err(|_| io::Error::other("cannot allocate JSON export buffer"))?;
-        destination.extend_from_slice(bytes);
+        destination.append(bytes)
+    }
+
+    pub fn identify(&mut self, index: usize, url: &str) -> Result<(), CliError> {
+        let url = CString::new(url).map_err(|_| CliError::new(2, "URL contains a NUL byte"))?;
+        let pointer = unsafe { ci_report_url(url.as_ptr()) };
+        let url = if pointer.is_null() {
+            // Malformed URLs must not leak raw credential text into a report.
+            String::new()
+        } else {
+            let value = unsafe { CStr::from_ptr(pointer) }
+                .to_string_lossy()
+                .into_owned();
+            unsafe { ci_string_free(pointer) };
+            value
+        };
+        self.identity = Some(TransferIdentity {
+            transfer_index: index,
+            url,
+        });
         Ok(())
     }
 
-    pub fn finish(&mut self, status: i64, exit_code: i32) -> io::Result<Option<PathBuf>> {
+    fn write_json(&mut self, out: &mut dyn Write, status: i64, code: i32) -> io::Result<()> {
+        write!(
+            out,
+            "{{\n  \"schema_version\": 1,\n  \"status\": {status},\n  \"exit_code\": {code}"
+        )?;
+        if let Some(identity) = &self.identity {
+            write!(
+                out,
+                ",\n  \"transfer_index\": {},\n  \"url\": ",
+                identity.transfer_index
+            )?;
+            export_field::string(out, &identity.url)?;
+        }
+        if self.include_headers {
+            write!(
+                out,
+                ",\n  \"headers_encoding\": \"{}\",\n  \"headers\": ",
+                self.headers.encoding()
+            )?;
+            self.headers.json(out, true)?;
+        }
+        if !self.head {
+            write!(
+                out,
+                ",\n  \"body_encoding\": \"{}\",\n  \"body\": ",
+                self.body.encoding()
+            )?;
+            self.body.json(out, false)?;
+        }
+        out.write_all(b"\n}\n")
+    }
+
+    pub(crate) fn finish(
+        &mut self,
+        status: i64,
+        exit_code: i32,
+        aggregate: Option<&mut Aggregate>,
+    ) -> io::Result<Option<PathBuf>> {
         if !self.is_json() {
             if exit_code == 0 {
                 self.ensure_file()?;
@@ -132,6 +193,8 @@ impl Export {
             if let Some(file) = &mut self.file {
                 file.flush()?;
             }
+        } else if let Some(aggregate) = aggregate {
+            aggregate.push(self, status, exit_code)?;
         } else {
             let destination: Box<dyn Write> = if self.mode == ExportMode::JsonFile {
                 self.ensure_file()?;
@@ -140,86 +203,82 @@ impl Export {
                 Box::new(io::stdout())
             };
             let mut out = BufWriter::new(destination);
-            write!(out, "{{\n  \"schema_version\": 1,\n  \"status\": {status},\n  \"exit_code\": {exit_code}")?;
-            if self.include_headers {
-                let utf8 = std::str::from_utf8(&self.headers).is_ok();
-                write!(
-                    out,
-                    ",\n  \"headers_encoding\": \"{}\",\n  \"headers\": [",
-                    encoding(utf8)
-                )?;
-                for (index, line) in self.headers.split_inclusive(|b| *b == b'\n').enumerate() {
-                    if index != 0 {
-                        out.write_all(b",")?;
-                    }
-                    out.write_all(b"\n    ")?;
-                    json_bytes(&mut out, line, utf8)?;
-                }
-                out.write_all(b"\n  ]")?;
-            }
-            if !self.head {
-                let utf8 = std::str::from_utf8(&self.body).is_ok();
-                write!(
-                    out,
-                    ",\n  \"body_encoding\": \"{}\",\n  \"body\": ",
-                    encoding(utf8)
-                )?;
-                json_bytes(&mut out, &self.body, utf8)?;
-            }
-            out.write_all(b"\n}\n")?;
+            self.write_json(&mut out, status, exit_code)?;
             out.flush()?;
         }
         Ok(self.path.clone())
     }
 }
 
-fn encoding(utf8: bool) -> &'static str {
-    if utf8 {
-        "utf-8"
-    } else {
-        "base64"
-    }
+struct TransferIdentity {
+    transfer_index: usize,
+    url: String,
 }
 
-// Callers validate UTF-8 once for the entire field before splitting header lines.
-fn json_bytes(out: &mut dyn Write, bytes: &[u8], utf8: bool) -> io::Result<()> {
-    out.write_all(b"\"")?;
-    if utf8 {
-        for byte in bytes {
-            match byte {
-                b'"' => out.write_all(b"\\\"")?,
-                b'\\' => out.write_all(b"\\\\")?,
-                b'\n' => out.write_all(b"\\n")?,
-                b'\r' => out.write_all(b"\\r")?,
-                b'\t' => out.write_all(b"\\t")?,
-                0..=31 => write!(out, "\\u{byte:04x}")?,
-                _ => out.write_all(&[*byte])?,
+pub(crate) struct Aggregate {
+    file: File,
+    entries: Vec<Option<(u64, u64)>>,
+}
+
+impl Aggregate {
+    pub fn new(count: usize) -> io::Result<Self> {
+        let mut entries = Vec::new();
+        entries
+            .try_reserve_exact(count)
+            .map_err(|_| io::Error::other("cannot allocate JSON result index"))?;
+        entries.resize(count, None);
+        Ok(Self {
+            file: spool::create()?,
+            entries,
+        })
+    }
+
+    fn push(&mut self, export: &mut Export, status: i64, code: i32) -> io::Result<()> {
+        let index = export
+            .identity
+            .as_ref()
+            .ok_or_else(|| io::Error::other("missing transfer identity"))?
+            .transfer_index;
+        let start = self.file.stream_position()?;
+        {
+            let mut writer = BufWriter::new(&mut self.file);
+            export.write_json(&mut writer, status, code)?;
+            writer.flush()?;
+        }
+        let end = self.file.stream_position()?;
+        let entry = self
+            .entries
+            .get_mut(index)
+            .ok_or_else(|| io::Error::other("invalid transfer identity"))?;
+        if entry.is_some() {
+            return Err(io::Error::other("duplicate transfer result"));
+        }
+        *entry = Some((start, end - start));
+        Ok(())
+    }
+
+    pub fn finish(&mut self, out: &mut dyn Write) -> io::Result<()> {
+        if self.entries.iter().any(Option::is_none) {
+            return Err(io::Error::other("incomplete JSON result set"));
+        }
+        out.write_all(b"[\n")?;
+        let mut buffer = [0; 64 * 1024];
+        for (index, entry) in self.entries.iter().enumerate() {
+            let (offset, mut remaining) = entry.expect("validated complete result set");
+            if index != 0 {
+                out.write_all(b",\n")?;
+            }
+            self.file.seek(SeekFrom::Start(offset))?;
+            while remaining != 0 {
+                let count = (remaining as usize).min(buffer.len());
+                self.file.read_exact(&mut buffer[..count])?;
+                out.write_all(&buffer[..count])?;
+                remaining -= count as u64;
             }
         }
-    } else {
-        const ALPHABET: &[u8; 64] =
-            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        for chunk in bytes.chunks(3) {
-            let a = chunk[0] as usize;
-            let b = *chunk.get(1).unwrap_or(&0) as usize;
-            let c = *chunk.get(2).unwrap_or(&0) as usize;
-            out.write_all(&[
-                ALPHABET[a >> 2],
-                ALPHABET[((a & 3) << 4) | (b >> 4)],
-                if chunk.len() > 1 {
-                    ALPHABET[((b & 15) << 2) | (c >> 6)]
-                } else {
-                    b'='
-                },
-                if chunk.len() > 2 {
-                    ALPHABET[c & 63]
-                } else {
-                    b'='
-                },
-            ])?;
-        }
+        out.write_all(b"]\n")?;
+        out.flush()
     }
-    out.write_all(b"\"")
 }
 
 fn url_slug(url: &str) -> String {

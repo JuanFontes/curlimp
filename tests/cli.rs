@@ -20,8 +20,8 @@ fn clustered_flags_and_attached_values_preserve_curl_meaning() {
     assert!(c.silent && c.show_error && c.follow);
     assert_eq!(c.method.as_deref(), Some("POST"));
     assert_eq!(c.headers, ["Accept: application/json"]);
-    assert_eq!(c.output.as_deref(), Some("out.bin"));
-    assert_eq!(c.url, "https://httpbin.org/get");
+    assert_eq!(c.outputs, ["out.bin"]);
+    assert_eq!(c.urls[0], "https://httpbin.org/get");
 }
 
 #[test]
@@ -57,7 +57,6 @@ fn unsupported_or_incomplete_invocations_fail_before_transfer() {
     for args in [
         vec!["--retry", "2", "https://httpbin.org/get"],
         vec!["-H"],
-        vec!["https://a.test", "https://b.test"],
         vec!["--max-time", "NaN", "https://httpbin.org/get"],
         vec!["--max-time", "-1", "https://httpbin.org/get"],
         vec!["--silent=yes", "https://httpbin.org/get"],
@@ -80,6 +79,31 @@ fn informational_commands_do_not_require_a_url() {
         parse(vec!["--list-profiles".into()]).unwrap(),
         Action::Profiles
     );
+}
+
+#[test]
+fn multiple_urls_accept_outputs_before_or_after_urls() {
+    for args in [
+        vec![
+            "https://a.test",
+            "https://b.test",
+            "-o",
+            "first",
+            "-osecond",
+        ],
+        vec![
+            "--output=first",
+            "--url=https://a.test",
+            "-o",
+            "second",
+            "https://b.test",
+        ],
+    ] {
+        assert!(matches!(
+            parse(args.into_iter().map(String::from).collect()),
+            Ok(Action::Transfer(_))
+        ));
+    }
 }
 
 #[test]
@@ -108,7 +132,7 @@ fn positional_profile_accepts_flags_on_either_side_before_the_url() {
     ] {
         let c = transfer(&args);
         assert_eq!(c.impersonate.as_deref(), Some("firefox147"));
-        assert_eq!(c.url, url);
+        assert_eq!(c.urls[0], url);
         assert!(c.silent && c.show_error && c.head);
     }
 }
@@ -133,7 +157,7 @@ fn option_values_and_literal_urls_are_never_positional_profiles() {
         vec!["--output=firefox147", url],
     ] {
         let c = transfer(&args);
-        assert_eq!(c.output.as_deref(), Some("firefox147"));
+        assert_eq!(c.outputs, ["firefox147"]);
         assert_eq!(c.impersonate, None);
     }
     for args in [
@@ -144,7 +168,7 @@ fn option_values_and_literal_urls_are_never_positional_profiles() {
     ] {
         let c = transfer(&args);
         assert_eq!(c.impersonate, None);
-        assert!(c.url.ends_with("firefox147"));
+        assert!(c.urls[0].ends_with("firefox147"));
     }
     let c = transfer(&["--json", "chrome150", url]);
     assert_eq!(c.data[0].value, "chrome150");
@@ -154,12 +178,7 @@ fn option_values_and_literal_urls_are_never_positional_profiles() {
 #[test]
 fn profile_shorthand_requires_one_exact_name_before_a_url() {
     let url = "https://httpbin.org/status/200";
-    for args in [
-        vec!["firefox147"],
-        vec!["chrome15", url],
-        vec![url, "firefox147"],
-        vec!["chrome150", "firefox147", url],
-    ] {
+    for args in [vec!["firefox147"], vec!["chrome150", "firefox147", url]] {
         assert_eq!(
             parse(args.into_iter().map(String::from).collect())
                 .unwrap_err()
@@ -168,7 +187,7 @@ fn profile_shorthand_requires_one_exact_name_before_a_url() {
         );
     }
     // A bare hostname that is not an exact profile retains curl's URL meaning.
-    assert_eq!(transfer(&["chrome15"]).url, "chrome15");
+    assert_eq!(transfer(&["chrome15"]).urls[0], "chrome15");
 }
 
 #[test]
@@ -225,4 +244,59 @@ fn export_conflicts_fail_before_transfer() {
             .collect()
     )
     .is_ok());
+}
+
+#[test]
+fn urls_and_destinations_keep_independent_order() {
+    let c = transfer(&[
+        "--output=first",
+        "--url=https://a.test",
+        "https://b.test",
+        "-o-",
+        "--",
+        "firefox147",
+    ]);
+    let targets: Vec<_> = c.targets().collect();
+    assert_eq!(targets[0].url, "https://a.test");
+    assert_eq!(targets[0].output.as_deref(), Some("first"));
+    assert_eq!(targets[1].output.as_deref(), Some("-"));
+    assert_eq!(targets[2].url, "firefox147");
+    assert_eq!(targets[2].output, None);
+    assert_eq!(targets[2].index, 2);
+}
+
+#[test]
+fn parallel_flags_accept_curl_forms_and_reject_invalid_limits() {
+    for flags in [
+        vec!["-ZsS"],
+        vec!["--parallel-max=2", "--parallel"],
+        vec!["-Z", "--no-parallel"],
+        vec!["--parallel-max", "0"],
+        vec!["--parallel-max", "65536"],
+    ] {
+        let mut args = flags;
+        args.push("https://httpbin.org/status/200");
+        assert!(parse(args.into_iter().map(String::from).collect()).is_ok());
+    }
+    for value in ["-1", "1.5", "a", "18446744073709551616"] {
+        assert!(parse(
+            ["--parallel-max", value, "https://httpbin.org/status/200"]
+                .into_iter()
+                .map(String::from)
+                .collect()
+        )
+        .is_err());
+    }
+}
+
+#[test]
+fn parallel_limits_and_overrides_preserve_curl_semantics() {
+    let url = "https://httpbin.org/status/200";
+    for (value, expected) in [("0", 50), ("1", 1), ("65535", 65535), ("65536", 65535)] {
+        let c = transfer(&["--parallel-max", value, url]);
+        assert_eq!(c.parallel_max, Some(expected));
+        assert!(!c.parallel);
+    }
+    assert!(!transfer(&["-Z", "--no-parallel", url]).parallel);
+    assert!(transfer(&["--no-parallel", "-Z", url]).parallel);
 }

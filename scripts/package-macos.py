@@ -129,7 +129,7 @@ profile (--no-impersonate), decoding is opt-in via --compressed.
 
 Export files with --txt or --json-file in the current directory. Without -i/-I,
 exports contain the body; -i adds headers and -I selects headers only. JSON
-exports buffer at most 64 MiB; TXT streams. --json DATA still sends request JSON.
+exports use private temporary storage with a 64 MiB limit per response; TXT streams. --json DATA still sends request JSON.
 See https://juanfontes.github.io/curlimp/docs/response-exports/ for details.
 
 Keep the entire folder together: the executable loads the engine from lib/.
@@ -153,8 +153,11 @@ in the project README; a deployment target alone is not a compatibility test.
 TLS verification is enabled. The engine uses Apple SecTrust and is configured
 with /etc/ssl/cert.pem. --cacert, CURL_CA_BUNDLE, SSL_CERT_FILE and SSL_CERT_DIR
 support custom trust settings. Profiles and supported options match the Linux
-CLI; use --help and --list-profiles. This CLI accepts one URL and a subset of
-curl flags. HTTP/3 and equivalence to real browser fingerprints are unverified.
+CLI; use --help and --list-profiles. This CLI accepts multiple URLs with one
+common request configuration and a subset of curl flags. Transfers run
+sequentially unless --parallel is enabled. Pair -o destinations with URLs by
+position, or use --json-output for an ordered array. JSON needs writable
+temporary storage. HTTP/3 and equivalence to real browser fingerprints are unverified.
 
 Notices: LICENSE, NOTICE and licenses/native/. Engine inputs: provenance/.
 Source revision: {args.revision}.
