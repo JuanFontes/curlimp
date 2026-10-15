@@ -4,6 +4,12 @@ import CodeBlock from '../../components/CodeBlock.astro';
 import { firstRequest, version, release, docHref } from '../../lib/site';
 const platforms = [
   {
+    key: 'homebrew',
+    name: 'Homebrew',
+    code: 'brew install juanfontes/tap/curlimp\ncurlimp -sS -I https://httpbin.org/status/200',
+    note: 'Requires Homebrew. Supports Linux amd64/arm64 and experimental macOS Apple Silicon. Installs the native command and Zsh completion; no separate brew tap command is needed.',
+  },
+  {
     key: 'docker',
     name: 'Docker',
     code: firstRequest,
@@ -28,7 +34,7 @@ const platforms = [
   title="Quick start"
   slug="quick-start"
   section="Getting started"
-  description="Make your first browser-profile HTTP request with curlimp. Run Docker or a native bundle, enable Zsh autocomplete and choose a browser profile."
+  description="Make your first browser-profile HTTP request with curlimp. Install with Homebrew, run Docker or a native bundle, and choose a browser profile."
   lead="Send your first request with browser-specific TLS and HTTP settings. Chrome 150 and response decompression are enabled by default."
 >
   <section>
@@ -60,32 +66,52 @@ const platforms = [
       ))}
     </div>
     <p class="caption">
-      Native packages: <a href={release}>download the release</a> and follow the{' '}
-      <a href={docHref('installation')}>checksum and installation guide</a>.
+      Homebrew: see{' '}
+      <a href={`${docHref('installation')}#homebrew`}>
+        setup, updates, and uninstall
+      </a>
+      . Manual downloads: <a href={release}>download the release</a> and follow
+      the <a href={docHref('installation')}>checksum and installation guide</a>.
     </p>
   </section>
+  <p>
+    Run <code>curlimp</code> or <code>curlimp --help</code> for the built-in
+    guide and examples. With Docker, use{' '}
+    <code>docker run --rm juanfontes/curlimp</code>.
+  </p>
   <section>
     <h2>Use curlimp with Zsh autocomplete</h2>
     <p>
-      The guides below use the native <code>curlimp</code> command. Follow the{' '}
-      <a href={docHref('installation')}>installation and PATH setup</a>, then
-      add this to <code>~/.zshrc</code>:
+      <strong>Installed with Homebrew?</strong> The completion file is already
+      installed. To register it in the current Zsh session, follow the
+      installer's tip after your shell has initialized completion with{' '}
+      <code>compinit</code>:
     </p>
-    <CodeBlock
-      code={`# Skip these first two lines if completion is already initialized.
-autoload -Uz compinit
-compinit
-
-source <(curlimp --completions zsh)
-zstyle ':completion:*:curlimp:*' menu yes select`}
-      lang="zsh"
-    />
+    <CodeBlock code="source <(curlimp --completions zsh)" lang="zsh" />
     <p>
-      Open a new terminal. Type <code>curlimp </code> and press Tab to list
-      profiles, or type any prefix such as <code>chrome1</code> before Tab to
-      filter them. Enter accepts a menu selection so you can finish the request.
-      See the <a href={docHref('completion')}>autocomplete guide</a> for
-      details.
+      Future sessions load the installed file if your Zsh setup loads Homebrew
+      completions. There is no need to add the source command to{' '}
+      <code>~/.zshrc</code> for that setup. See the{' '}
+      <a href={`${docHref('completion')}#homebrew-installations`}>
+        Homebrew completion guide
+      </a>{' '}
+      if completion is not configured yet.
+    </p>
+    <p>
+      <strong>Downloaded a native bundle manually?</strong> Follow the{' '}
+      <a href={docHref('installation')}>PATH instructions</a> and{' '}
+      <a href={`${docHref('completion')}#downloaded-native-bundles`}>
+        manual completion setup
+      </a>
+      .
+    </p>
+    <p>
+      Once completion is loaded, type <code>curlimp </code> and press Tab to
+      list profiles, or type any prefix such as <code>chrome1</code> before Tab
+      to filter them. The first Tab may expand a shared prefix; press Tab again
+      for the matches. The{' '}
+      <a href={docHref('completion')}>autocomplete guide</a> also shows how to
+      enable a selection menu.
     </p>
     <p>
       For Docker, use the full <code>docker run</code> command with the same

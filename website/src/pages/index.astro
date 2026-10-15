@@ -13,7 +13,7 @@ import {
   href,
 } from '../lib/site';
 const description =
-  'Browser impersonation from your terminal. Use browser-specific TLS and HTTP profiles with curl-style commands, Docker, Linux and Apple Silicon downloads.';
+  'Browser impersonation from your terminal. Install with Homebrew, run with Docker, or download native Linux and Apple Silicon packages. Familiar curl-style commands.';
 const software = {
   '@type': 'SoftwareSourceCode',
   name: 'curlimp',
@@ -76,6 +76,8 @@ const software = {
       </div>
     </section>
     <div class="platform-line">
+      <a href={`${docHref('installation')}#homebrew`}>Homebrew</a>
+      <span>·</span>
       <span>Docker</span>
       <span>·</span>
       <span>Linux amd64 / arm64</span>
@@ -84,6 +86,31 @@ const software = {
         macOS Apple Silicon <span class="muted">(experimental)</span>
       </span>
     </div>
+    <section class="project-section" aria-labelledby="install-title">
+      <div>
+        <p class="eyebrow">Install with Homebrew</p>
+        <h2 id="install-title">Ready for your next request.</h2>
+        <p>
+          With Homebrew installed, get the native command and Zsh profile
+          completion on Linux amd64/arm64 or macOS Apple Silicon (experimental).
+          No compilation or separate tap command is needed.
+        </p>
+        <a class="text-link" href={`${docHref('installation')}#homebrew`}>
+          Install, update, and uninstall <Icon name="arrow-right" />
+        </a>
+      </div>
+      <div>
+        <CodeBlock
+          code={`brew install juanfontes/tap/curlimp\ncurlimp -I https://httpbin.org/status/200`}
+          label="Homebrew"
+        />
+        <p>
+          Run <code>curlimp</code> for help and examples. The installer prints a
+          tip to activate <a href={docHref('completion')}>Zsh autocomplete</a>{' '}
+          in your current session.
+        </p>
+      </div>
+    </section>
     <section class="project-section" aria-labelledby="project-title">
       <div>
         <p class="eyebrow">The project</p>

@@ -32,6 +32,8 @@ The release selects Chrome 150 by default and automatically decodes compressed r
 
 Docker images support Linux amd64 and arm64. Release CI targets Ubuntu 24.04 for both native architectures. Native macOS Apple Silicon support is experimental; release CI targets macOS 15, and binaries are signed ad hoc and not notarized.
 
+The [Homebrew tap](../installation/#homebrew) installs the same native releases on Linux amd64/arm64 and macOS Apple Silicon. It includes Zsh completion and supports updates and uninstall through Homebrew. The same platform limitations apply.
+
 There are no native Windows or Intel Mac packages. The minimum macOS deployment target and the availability of a Linux loader are not proof of compatibility with every older OS or distribution.
 
 ## What release CI checks

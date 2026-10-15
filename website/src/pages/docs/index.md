@@ -14,7 +14,13 @@ The Rust CLI handles arguments, inputs and outputs. A small C bridge calls the n
 
 ## Your first request
 
-Follow the [quick start](./quick-start/) to use Docker or a native download. With the native `curlimp` command on your `PATH`:
+Follow the [quick start](./quick-start/) to install with Homebrew, use Docker, or download a native bundle. With Homebrew on Linux amd64/arm64 or macOS Apple Silicon (experimental):
+
+```sh
+brew install juanfontes/tap/curlimp
+```
+
+Then make your first request:
 
 ```sh
 curlimp -sS -I https://httpbin.org/status/200
@@ -24,16 +30,17 @@ Chrome 150 is the default profile. Responses are decompressed automatically whil
 
 ## Find the guide you need
 
-| I want to…                                 | Read                                                              |
-| ------------------------------------------ | ----------------------------------------------------------------- |
-| Run the published image or binary          | [Quick start](./quick-start/) and [installation](./installation/) |
-| Print a body, headers, or both             | [Body and headers](./body-and-headers/)                           |
-| Follow a redirect or check a response code | [Redirects and status codes](./redirects-and-status/)             |
-| Send JSON, form data or custom headers     | [Requests and JSON](./requests/)                                  |
-| Use authentication or cookies              | [Authentication and cookies](./authentication-and-cookies/)       |
-| Save a response or pipe request data       | [Files and pipelines](./files/)                                   |
-| Set a timeout, proxy or CA bundle          | [Networking and diagnostics](./networking/)                       |
-| Understand the native engine               | [Architecture](./architecture/)                                   |
+| I want to…                                        | Read                                                              |
+| ------------------------------------------------- | ----------------------------------------------------------------- |
+| Install with Homebrew, Docker, or a native bundle | [Quick start](./quick-start/) and [installation](./installation/) |
+| Update or uninstall a Homebrew installation       | [Homebrew guide](./installation/#homebrew)                        |
+| Print a body, headers, or both                    | [Body and headers](./body-and-headers/)                           |
+| Follow a redirect or check a response code        | [Redirects and status codes](./redirects-and-status/)             |
+| Send JSON, form data or custom headers            | [Requests and JSON](./requests/)                                  |
+| Use authentication or cookies                     | [Authentication and cookies](./authentication-and-cookies/)       |
+| Save a response or pipe request data              | [Files and pipelines](./files/)                                   |
+| Set a timeout, proxy or CA bundle                 | [Networking and diagnostics](./networking/)                       |
+| Understand the native engine                      | [Architecture](./architecture/)                                   |
 
 ## Read the boundaries first
 

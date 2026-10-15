@@ -68,6 +68,8 @@ curlimp -sS -I https://httpbin.org/status/200
 
 This installs a verified native release and its Zsh completion file. macOS support remains experimental. See [Homebrew setup, upgrades, and uninstall](https://juanfontes.github.io/curlimp/docs/installation/#homebrew).
 
+Update with `brew update` followed by `brew upgrade curlimp`; uninstall with `brew uninstall curlimp`. `brew update` refreshes the package catalog; it does not upgrade the installed command.
+
 With Docker installed, make your first request:
 
 ```sh
@@ -287,7 +289,7 @@ source <(curlimp --completions zsh)
 zstyle ':completion:*:curlimp:*' menu yes select
 ```
 
-Open a new terminal, type `curlimp `, and press **Tab** to list profiles. Any prefix filters the choices: `c`, `chrome1`, `firefox14`, or `safari26`. Select a profile and press **Enter** to insert it, then finish the request. Executing a command requires an exact profile name.
+Load the setup in your current Zsh session, or open a new terminal after saving it. Then type `curlimp ` and press **Tab** to list profiles. Any prefix filters the choices: `c`, `chrome1`, `firefox14`, or `safari26`. Select a profile and press **Enter** to insert it, then finish the request. Executing a command requires an exact profile name.
 
 Completion currently covers browser profiles in Zsh, including after `--impersonate`. It requires the native command on your host. [Setup and troubleshooting →](https://juanfontes.github.io/curlimp/docs/completion/)
 
@@ -299,7 +301,7 @@ The website contains the complete usage guides, supported options, examples, and
 
 | Looking for…                                     | Read                                                                                                                                                                                                                                  |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Your first request, downloads, or Docker setup   | [Quick start](https://juanfontes.github.io/curlimp/docs/quick-start/) · [Installation](https://juanfontes.github.io/curlimp/docs/installation/) · [Docker](https://juanfontes.github.io/curlimp/docs/docker/)                         |
+| Homebrew, downloads, or Docker setup             | [Quick start](https://juanfontes.github.io/curlimp/docs/quick-start/) · [Installation](https://juanfontes.github.io/curlimp/docs/installation/) · [Docker](https://juanfontes.github.io/curlimp/docs/docker/)                         |
 | Available browsers and completion                | [Profiles](https://juanfontes.github.io/curlimp/docs/profiles/) · [Zsh](https://juanfontes.github.io/curlimp/docs/completion/)                                                                                                        |
 | Body, headers, redirects, and status codes       | [Response selection](https://juanfontes.github.io/curlimp/docs/body-and-headers/) · [Redirects and errors](https://juanfontes.github.io/curlimp/docs/redirects-and-status/)                                                           |
 | JSON requests, forms, authentication, or cookies | [Requests](https://juanfontes.github.io/curlimp/docs/requests/) · [Authentication and cookies](https://juanfontes.github.io/curlimp/docs/authentication-and-cookies/)                                                                 |
