@@ -88,6 +88,8 @@ jobs:
         run: |
           version=$(python3 scripts/release_version.py)
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Test native qlog security fix with AddressSanitizer
+        run: python3 tests/native_security.py
       - name: Test release packager
         run: |
           python3 tests/release_package.py
@@ -186,6 +188,8 @@ jobs:
           rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
           echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix nghttp2)/bin" >> "$GITHUB_PATH"
+      - name: Test native qlog security fix with AddressSanitizer
+        run: python3 tests/native_security.py
       - name: Test macOS packager with real Mach-O fixtures
         run: python3 tests/macos_package.py
       - name: Test native header and library rebuild tracking

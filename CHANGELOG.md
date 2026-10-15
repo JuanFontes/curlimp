@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1 — 2026-10-15
+
+### Security
+
+- Backport the official ngtcp2 CVE-2026-40170 qlog buffer fix while keeping the pinned 1.20.0 source and existing impersonation changes.
+- Add an AddressSanitizer regression for long qlog transport-parameter events on Linux amd64/arm64 and macOS arm64. Test instrumentation is not included in published artifacts.
+- Record the c-ares CVE-2026-33630 disposition against the exact 1.34.8 source archive and build recipe, which retain the upstream 1.34.7 fix despite conflicting advisory metadata.
+- Keep reviewed findings and primary evidence visible in native dependency reports. Changed source hashes, patches, build recipes, or advisory ranges reopen triage; new and ambiguous advisories still fail closed.
+
+CLI behavior, native dependency versions, and the 38 browser profiles are unchanged.
+
 ## 0.5.0 — 2026-10-14
 
 ### Multiple transfers

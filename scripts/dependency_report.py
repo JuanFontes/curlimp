@@ -32,6 +32,42 @@ REPOS = {'brotli': 'google/brotli', 'boringssl': 'google/boringssl',
 BACKPORT_ID = 'GHSA-6933-cjhr-5qg6'
 BACKPORT_COMMIT = '5c7df8fa815ac1004d9ecb9d1f7595c4d37f46e1'
 BACKPORT_SHA256 = '615c6fa8389de372f4dcdd943ae18a7e29c0757e5fbe0445759989c6a07728d3'
+# Reviewed dispositions are bound to source identity and the exact evidence
+# reviewed in SECURITY.md. They are not general patched-version heuristics.
+REVIEWED_ADVISORIES = {
+    ('ngtcp2', 'GHSA-f523-465f-8c8f'): {
+        'pin': '1.20.0',
+        'source_sha256': '871ec97ad86803cf312901b0c393b0ee70163e25a87c9b2894d1234341ce4e97',
+        'ranges': ['<= 1.22.0'], 'patched_versions': ['1.22.1'],
+        'files': {
+            'patches/ngtcp2.patch': '8d5faf52a036587b81606fe0607743d9b4d167e2c50d6f2b91085a93f04bb35b',
+            'CMakeLists.txt': 'c6004653cebc2cde5aa058eb767ebc4a1ae3afed9320b6354e849d26a6734d0c',
+        },
+        'resolution': {
+            'status': 'backported',
+            'backport_commit': '708a7640c1f48fb8ffb540c4b8ea5b4c1dfb8ee5',
+            'review_note': 'Official qlog buffer fix backported to the pinned ngtcp2 source; ASan regression tested.',
+            'review_sources': ['https://github.com/ngtcp2/ngtcp2/commit/708a7640c1f48fb8ffb540c4b8ea5b4c1dfb8ee5'],
+        },
+    },
+    ('cares', 'GHSA-6wfj-rwm7-3542'): {
+        'pin': '1.34.8',
+        'source_sha256': 'c222b6d681096f9444d2c4863d2c1174019e27cacca0a4a5c114d36dd7d7bf78',
+        'ranges': ['> 1.32.3'], 'patched_versions': ['1.34.7'],
+        # Bind the unpatched c-ares build recipe too: a future local patch
+        # requires a new review, even when the archive itself stays the same.
+        'files': {'CMakeLists.txt': 'c6004653cebc2cde5aa058eb767ebc4a1ae3afed9320b6354e849d26a6734d0c'},
+        'resolution': {
+            'status': 'fixed-in-pinned-source',
+            'review_note': 'Conflicting upstream range reviewed: the exact c-ares 1.34.8 archive retains the 1.34.7 fix.',
+            'review_sources': [
+                'https://github.com/c-ares/c-ares/commit/d823199b688052dcdc1646f2ab4cb8c16b1c644a',
+                'https://github.com/c-ares/c-ares/compare/d823199b688052dcdc1646f2ab4cb8c16b1c644a...v1.34.8',
+                'https://c-ares.org/changelog.html',
+            ],
+        },
+    },
+}
 
 
 class SourceError(Exception):
@@ -94,10 +130,16 @@ def inventory():
         r'^set\((\w+)_(?:VERSION|COMMIT) "([^"]+)"\)', source, re.M)
         if name.lower() in REPOS}
     lock = (ROOT / 'engine.lock').read_text()
+    hashes = {name.lower(): digest for name, digest in re.findall(
+        r'^set\((\w+)_URL_HASH "SHA256=([a-f0-9]{64})"\)', source, re.M)}
     pins['libidn2'] = re.search(r'^LIBIDN2_VERSION=(.+)$', lock, re.M)[1]
+    hashes['libidn2'] = re.search(r'^LIBIDN2_SOURCE_SHA256=([a-f0-9]{64})$', lock, re.M)[1]
     if set(pins) != set(REPOS) | {'libidn2'}:
         raise ValueError('Native pin inventory is incomplete')
+    if not set(pins) <= set(hashes):
+        raise ValueError('Native source hash inventory is incomplete')
     return {name: {'pin': pin.removeprefix('curl-').replace('_', '.'),
+                   'source_sha256': hashes[name],
                    'policy': 'hold for legacy H2 priority support' if name == 'nghttp2'
                              else 'manual review; source/hash/patch/build validation required'}
             for name, pin in pins.items()}
@@ -157,6 +199,19 @@ def nghttp2_status(identifier, affected):
     if identifier == BACKPORT_ID and backport_present():
         return 'backported'
     return 'needs-triage'
+
+
+def reviewed_resolution(name, entry, finding):
+    review = REVIEWED_ADVISORIES.get((name, finding['id']))
+    if not review or any(entry.get(key) != review[key] for key in ('pin', 'source_sha256')):
+        return {}
+    if any(finding.get(key) != review[key] for key in ('ranges', 'patched_versions')):
+        return {}
+    for path, digest in review['files'].items():
+        file = ROOT / 'vendor/engine' / path
+        if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != digest:
+            return {}
+    return review['resolution']
 
 
 def releases(data, token):
@@ -271,6 +326,8 @@ def github_advisories(name, entry, token):
                     finding['status'] = status
                     if status == 'backported':
                         finding['backport_commit'] = BACKPORT_COMMIT
+                    if status == 'needs-triage':
+                        finding.update(reviewed_resolution(name, entry, finding))
                 except (ValueError, KeyError, TypeError) as error:
                     finding['error'] = str(error)
                     errors.append(f'{name} advisories: {identifier}: {error}')
@@ -307,6 +364,9 @@ def markdown(report):
                      (f"; backport `{finding['backport_commit']}`" if 'backport_commit' in finding else ''))
         if finding.get('ranges'):
             lines.append(f"  - Affected ranges: {finding['ranges']}; upstream patched versions: {finding['patched_versions']}")
+        if finding.get('review_note'):
+            lines.append(f"  - Review: {finding['review_note']}")
+            lines.extend(f'  - Evidence: {url}' for url in finding['review_sources'])
     if report['errors']:
         lines += ['', 'Source failures — result is incomplete, not clean:', '']
         lines += ['- ' + error for error in report['errors']]
