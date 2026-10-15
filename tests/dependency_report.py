@@ -234,6 +234,92 @@ class DependencyReportTests(unittest.TestCase):
             self.assertEqual(result['advisories'][0]['status'], 'backported')
             self.assertIn('not a security certification', (Path(temp) / 'report.md').read_text())
 
+    def reviewed_advisory(self, name):
+        if name == 'ngtcp2':
+            return advisory(identifier='GHSA-f523-465f-8c8f')
+        item = advisory(identifier='GHSA-6wfj-rwm7-3542', vulnerable='> 1.32.3', package='c-ares')
+        item['vulnerabilities'][0]['patched_versions'] = '1.34.7'
+        return item
+
+    def report_one(self, name, item, entry=None):
+        with patch.object(m, 'fetch_json', return_value=[item]):
+            findings, errors = m.github_advisories(name, entry or m.inventory()[name], '')
+        self.assertEqual(errors, [])
+        return findings[0]
+
+    def test_reviewed_native_advisories_retain_sources_and_resolution(self):
+        for name, status in [('ngtcp2', 'backported'), ('cares', 'fixed-in-pinned-source')]:
+            with self.subTest(name=name):
+                result = self.report_one(name, self.reviewed_advisory(name))
+                self.assertEqual(result['status'], status)
+                self.assertTrue(result['review_sources'])
+                self.assertTrue(result['review_note'])
+                self.assertTrue(result['ranges'])
+                if name == 'ngtcp2':
+                    self.assertEqual(result['backport_commit'], '708a7640c1f48fb8ffb540c4b8ea5b4c1dfb8ee5')
+
+    def test_review_does_not_cover_changed_pin_source_hash_or_unrelated_id(self):
+        for name in ('ngtcp2', 'cares'):
+            for field, value in [('pin', '1.19.0' if name == 'ngtcp2' else '1.34.6'),
+                                 ('source_sha256', '0' * 64)]:
+                with self.subTest(name=name, field=field):
+                    entry = m.inventory()[name]
+                    entry[field] = value
+                    self.assertEqual(self.report_one(name, self.reviewed_advisory(name), entry)['status'],
+                                     'needs-triage')
+            item = self.reviewed_advisory(name)
+            item['ghsa_id'] = 'GHSA-new-advisory'
+            self.assertEqual(self.report_one(name, item)['status'], 'needs-triage')
+
+    def test_review_reopens_for_changed_or_additional_upstream_metadata(self):
+        import copy
+        for name in ('ngtcp2', 'cares'):
+            item = self.reviewed_advisory(name)
+            for field, value in [('vulnerable_version_range', '>= 1.0.0'),
+                                 ('patched_versions', '2.0.0'), ('patched_versions', None)]:
+                changed = copy.deepcopy(item)
+                changed['vulnerabilities'][0][field] = value
+                with self.subTest(name=name, field=field, value=value):
+                    self.assertEqual(self.report_one(name, changed)['status'], 'needs-triage')
+            item['vulnerabilities'].append(copy.deepcopy(item['vulnerabilities'][0]))
+            self.assertEqual(self.report_one(name, item)['status'], 'needs-triage')
+
+    def test_review_requires_the_reviewed_build_recipe_and_patch_bytes(self):
+        import shutil
+        for name, changed in [('ngtcp2', 'patches/ngtcp2.patch'),
+                              ('ngtcp2', 'CMakeLists.txt'), ('cares', 'CMakeLists.txt')]:
+            for missing in (False, True):
+                with self.subTest(name=name, missing=missing), tempfile.TemporaryDirectory() as temp:
+                    root = Path(temp)
+                    target = root / 'vendor/engine' / changed
+                    shutil.copytree(m.ROOT / 'vendor/engine', root / 'vendor/engine')
+                    if missing:
+                        target.unlink()
+                    else:
+                        target.write_bytes(target.read_bytes() + b'\nchanged\n')
+                    entry = m.inventory()[name]
+                    with patch.object(m, 'ROOT', root):
+                        self.assertEqual(self.report_one(name, self.reviewed_advisory(name), entry)['status'],
+                                         'needs-triage')
+
+    def test_reviewed_findings_pass_and_remain_visible_in_both_reports(self):
+        with tempfile.TemporaryDirectory() as temp, \
+                patch.object(m, 'fetch', return_value='libidn2-99.0.0.tar.gz'), \
+                patch.object(m, 'fetch_json', side_effect=feeds(
+                    ngtcp2=[self.reviewed_advisory('ngtcp2')], cares=[self.reviewed_advisory('cares')])), \
+                patch('sys.argv', ['dependency_report.py', '--output', temp]), \
+                patch('sys.stdout', new_callable=io.StringIO):
+            self.assertEqual(m.main(), 0)
+            report = json.loads((Path(temp) / 'report.json').read_text())
+            self.assertEqual(report['triage_required'], 0)
+            self.assertEqual(len(report['advisories']), 2)
+            summary = (Path(temp) / 'report.md').read_text()
+            for finding in report['advisories']:
+                self.assertIn(finding['id'], summary)
+                self.assertIn(finding['review_note'], summary)
+                for source in finding['review_sources']:
+                    self.assertIn(source, summary)
+
     def test_inventory_reads_exact_native_pins(self):
         inventory = m.inventory()
         self.assertEqual(inventory['zlib']['pin'], '1.3.2')
