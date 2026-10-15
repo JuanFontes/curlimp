@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Multiple-transfer contracts against a local HTTP fixture."""
 import http.server
+import base64
+import json
+import resource
+import signal
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 
 CLI = os.environ.get('CLI', str(Path(__file__).resolve().parents[1] / 'target/debug/curlimp'))
@@ -39,6 +44,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path == '/unchanged': body, status = b'', 304
         if self.path == '/error': body, status = b'failure', 502
         if self.path == '/partial': body = b'partial-data'
+        if self.path.startswith('/large/'):
+            body = b'x' * int(self.path.rsplit('/', 1)[1])
         if self.path == '/redirect':
             body, status, headers = b'', 302, [('Location', '/one')]
         if self.path == '/set-cookie': headers = [('Set-Cookie', 'session=first; Path=/')]
@@ -95,12 +102,13 @@ class Transfers(unittest.TestCase):
         self.server.release = threading.Event()
         self.server.active = self.server.peak = 0
 
-    def run_cli(self, *args, data=None, env=None):
+    def run_cli(self, *args, data=None, env=None, child_setup=None):
         environment = {k: v for k, v in os.environ.items()
                        if k not in ('CURL_IMPERSONATE', 'CURL_IMPERSONATE_HEADERS')}
         environment.update(env or {})
         return subprocess.run([CLI, '-sS', '--noproxy', '*', *args], cwd=self.root,
-                              env=environment, input=data, capture_output=True, timeout=15)
+                              env=environment, input=data, capture_output=True, timeout=30,
+                              preexec_fn=child_setup)
 
     def tearDown(self):
         self.server.release.set()
@@ -297,6 +305,119 @@ class Transfers(unittest.TestCase):
         self.assertTrue(result.stdout.endswith(b'session=first'))
         self.assertEqual((self.root / 'headers').read_bytes().count(b'HTTP/1.1 200'), 2)
         self.assertTrue(all('Firefox/147' in r[2].get('User-Agent', '') for r in self.server.requests))
+
+    def test_multi_json_is_one_ordered_array_with_transfer_identity(self):
+        result = self.run_cli('-Z', '--json-output', '-i', *self.urls('/wait/1', '/release', '/binary'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        values = json.loads(result.stdout)
+        self.assertEqual([v['transfer_index'] for v in values], [0, 1, 2])
+        self.assertEqual([v['url'] for v in values], self.urls('/wait/1', '/release', '/binary'))
+        self.assertEqual(values[0]['body'], '/wait/1')
+        self.assertEqual(values[1]['body'], '/release')
+        self.assertEqual(base64.b64decode(values[2]['body']), b'\x00\xff\x80\r\n')
+        self.assertTrue(all(v['headers'][0].startswith('HTTP/1.1 200') for v in values))
+
+    def test_multi_json_head_and_network_failure_keep_individual_results(self):
+        result = self.run_cli('-Z', '--json-output', *self.urls('/partial', '/one'))
+        self.assertEqual(result.returncode, 18, result.stderr)
+        values = json.loads(result.stdout)
+        self.assertEqual([v['exit_code'] for v in values], [18, 0])
+        self.assertEqual([v['body'] for v in values], ['par', '/one'])
+        result = self.run_cli('--json-output', '-I', *self.urls('/one', '/empty'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(all('body' not in v for v in json.loads(result.stdout)))
+
+    def test_multi_file_exports_do_not_overwrite_repeated_urls(self):
+        for mode, extension in [('--txt', 'txt'), ('--json-file', 'json')]:
+            result = self.run_cli('-Z', mode, *self.urls('/one', '/one', '/binary'))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, b'')
+            files = list(self.root.glob('*.' + extension))
+            self.assertEqual(len(files), 3)
+            self.assertTrue(all(p.stat().st_mode & 0o077 == 0 for p in files))
+            if extension == 'json':
+                values = sorted((json.loads(p.read_text()) for p in files), key=lambda v: v['transfer_index'])
+                self.assertEqual([v['transfer_index'] for v in values], [0, 1, 2])
+                self.assertEqual(values[0]['body'], values[1]['body'])
+
+    def test_multi_json_identity_never_contains_url_credentials(self):
+        private = self.url.replace('http://', 'http://alice:secret@') + '/one#private'
+        result = self.run_cli('--json-output', private, *self.urls('/two'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        values = json.loads(result.stdout)
+        self.assertEqual(values[0]['url'], self.url + '/one')
+        self.assertNotIn(b'secret', result.stdout)
+        self.assertNotIn(b'#private', result.stdout)
+
+    def test_json_temp_failure_has_no_misleading_aggregate(self):
+        result = self.run_cli('--json-output', *self.urls('/one', '/two'),
+                              env={'TMPDIR': str(self.root / 'missing')})
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assertEqual(result.stdout, b'')
+
+    def test_json_spools_leave_no_named_files(self):
+        temporary = self.root / 'temporary'
+        temporary.mkdir()
+        result = self.run_cli('-Z', '--json-output', *self.urls('/one', '/binary'),
+                              env={'TMPDIR': str(temporary)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(json.loads(result.stdout)), 2)
+        self.assertEqual(list(temporary.iterdir()), [])
+
+    def test_json_size_limit_suppresses_entire_aggregate(self):
+        result = self.run_cli('-Z', '--json-output', *self.urls('/one', '/large/67108865'))
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assertEqual(result.stdout, b'')
+
+    def test_json_storage_write_failure_returns_23_without_report(self):
+        def limit_files():
+            signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+            resource.setrlimit(resource.RLIMIT_FSIZE, (4096, 4096))
+        result = self.run_cli('--json-output', *self.urls('/large/8192', '/one'), child_setup=limit_files)
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assertEqual(result.stdout, b'')
+
+    def test_completed_json_results_do_not_keep_one_descriptor_each(self):
+        def limit_descriptors():
+            resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+        result = self.run_cli('-Z', '--parallel-max', '2', '--json-output',
+                              *self.urls(*(['/one'] * 100)), child_setup=limit_descriptors)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        values = json.loads(result.stdout)
+        self.assertEqual([v['transfer_index'] for v in values], list(range(100)))
+        self.assertTrue(all(v['body'] == '/one' for v in values))
+
+    def test_aggregate_memory_does_not_grow_with_total_body_size(self):
+        # wait4 reports the child CLI's peak RSS, independently of fixture memory.
+        with (self.root / 'aggregate.json').open('wb') as output, (self.root / 'stderr').open('wb') as errors:
+            process = subprocess.Popen([CLI, '-sS', '--noproxy', '*', '-Z', '--parallel-max', '16',
+                                        '--json-output', *self.urls(*(['/large/8388608'] * 16))],
+                                       cwd=self.root, stdout=output, stderr=errors)
+            deadline = time.monotonic() + 30
+            while True:
+                waited, status, usage = os.wait4(process.pid, os.WNOHANG)
+                if waited: break
+                if time.monotonic() >= deadline:
+                    process.kill()
+                    process.wait()
+                    self.fail('large aggregate did not finish within 30 seconds')
+                time.sleep(0.01)
+            process.returncode = os.waitstatus_to_exitcode(status)
+        self.assertEqual(process.returncode, 0, (self.root / 'stderr').read_bytes())
+        peak = usage.ru_maxrss if sys.platform == 'darwin' else usage.ru_maxrss * 1024
+        self.assertLess(peak, 96 * 1024 * 1024, f'peak RSS was {peak} bytes for 128 MiB of response bodies')
+        self.assertGreater((self.root / 'aggregate.json').stat().st_size, 128 * 1024 * 1024)
+
+    def test_json_accepts_exactly_64_mib_selected_bytes(self):
+        with (self.root / 'exact.json').open('wb') as output:
+            result = subprocess.run([CLI, '-sS', '--noproxy', '*', '--json-output',
+                                     *self.urls('/large/67108864')], cwd=self.root,
+                                    stdout=output, stderr=subprocess.PIPE, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with (self.root / 'exact.json').open() as output:
+            value = json.load(output)
+        self.assertEqual(len(value['body']), 64 * 1024 * 1024)
+        self.assertEqual(value['body_encoding'], 'utf-8')
 
 
 if __name__ == '__main__':

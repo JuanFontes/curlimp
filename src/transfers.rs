@@ -1,8 +1,9 @@
 //! Invocation-level scheduling and diagnostics; response state belongs to each transfer.
 use crate::{
     body,
-    cli::{CliError, Config},
+    cli::{CliError, Config, ExportMode},
     engine::{Session, Transfer},
+    export::Aggregate,
 };
 use std::{
     collections::HashMap,
@@ -109,6 +110,15 @@ pub fn run(config: &Config) -> Result<(), CliError> {
     let prepared = body::prepare(config)?;
     let session = Session::new(config)?;
     let mut multi = Multi::new(&session)?;
+    let mut aggregate = if config.urls.len() > 1 && config.export == Some(ExportMode::JsonOutput) {
+        Some(
+            Aggregate::new(config.urls.len())
+                .map_err(|e| CliError::new(23, format!("creating JSON spool: {e}")))?,
+        )
+    } else {
+        None
+    };
+    let mut export_error = None;
     if config.outputs.len() > config.urls.len() && !config.silent {
         let _ = writeln!(
             io::stderr().lock(),
@@ -136,7 +146,7 @@ pub fn run(config: &Config) -> Result<(), CliError> {
         check(unsafe { ci_multi_perform(multi.raw.as_ptr()) })?;
         while let Some((mut transfer, code)) = multi.next()? {
             let current = transfer
-                .complete(code, &prepared.format)
+                .complete(code, &prepared.format, aggregate.as_mut())
                 .and_then(|result| result.error.map_or(Ok(()), Err))
                 .map_err(|mut error| {
                     if config.urls.len() > 1 {
@@ -145,6 +155,13 @@ pub fn run(config: &Config) -> Result<(), CliError> {
                     }
                     report(config, error)
                 });
+            if config.export.is_some() {
+                if let Err(error) = &current {
+                    if error.code == 23 && export_error.is_none() {
+                        export_error = Some(error.clone());
+                    }
+                }
+            }
             let fatal = current
                 .as_ref()
                 .is_err_and(|error| matches!(error.code, 2 | 4 | 27));
@@ -162,6 +179,14 @@ pub fn run(config: &Config) -> Result<(), CliError> {
         if !multi.active.is_empty() {
             check(unsafe { ci_multi_poll(multi.raw.as_ptr()) })?;
         }
+    }
+    if let Some(error) = export_error {
+        return Err(error);
+    }
+    if let Some(aggregate) = &mut aggregate {
+        aggregate
+            .finish(&mut io::stdout().lock())
+            .map_err(|e| CliError::new(23, format!("writing JSON output: {e}")))?;
     }
     result
 }

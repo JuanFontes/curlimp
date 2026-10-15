@@ -1,7 +1,7 @@
 use crate::{
     body,
     cli::{CliError, Config, DataKind, TransferTarget},
-    export::Export,
+    export::{Aggregate, Export},
     writeout::Token,
 };
 use std::{
@@ -364,10 +364,15 @@ impl Transfer {
             crate::profiles::validate(profile)?;
             handle.string("impersonate", profile)?;
         }
-        let export = config
+        let mut export = config
             .export
             .map(|mode| Export::new(config, mode, &url))
             .transpose()?;
+        if config.urls.len() > 1 {
+            if let Some(export) = &mut export {
+                export.identify(target.index, &url)?;
+            }
+        }
         let json_export = export.as_ref().is_some_and(Export::is_json);
         let output = Output {
             export,
@@ -512,6 +517,7 @@ impl Transfer {
         &mut self,
         mut code: i32,
         format: &[Token],
+        aggregate: Option<&mut Aggregate>,
     ) -> Result<TransferResult, CliError> {
         let handle = &mut self.handle;
         if code == 0 && handle.info_number("http_code") != 304 {
@@ -544,7 +550,7 @@ impl Transfer {
         let status = handle.info_number("http_code");
         if let Some(export) = &mut handle.output.export {
             let path = export
-                .finish(status, code)
+                .finish(status, code, aggregate)
                 .map_err(|e| CliError::new(23, format!("writing export: {e}")))?;
             if let Some(path) = path {
                 if !self.silent {

@@ -100,7 +100,7 @@ pub enum Action {
     Transfer(Box<Config>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CliError {
     pub code: i32,
     pub message: String,
@@ -448,9 +448,6 @@ pub fn parse(args: Vec<String>) -> Result<Action, CliError> {
         return Err(error(
             "Curlimp does not support mixing --json with other data options",
         ));
-    }
-    if c.urls.len() > 1 && c.export == Some(ExportMode::JsonOutput) {
-        return Err(error("multiple-URL JSON output is not available yet"));
     }
     if let Some(mode) = c.export {
         if !c.outputs.is_empty() || c.dump_header.is_some() || c.write_out.is_some() {

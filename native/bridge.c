@@ -227,6 +227,21 @@ int ci_local_timestamp(char *buffer, size_t capacity) {
 }
 
 /* Only validated host/path bytes may be used in an export filename. */
+char *ci_report_url(const char *url) {
+  CURLU *parsed = curl_url();
+  char *result = NULL;
+  if(parsed && !curl_url_set(parsed, CURLUPART_URL, url, CURLU_GUESS_SCHEME | CURLU_PATH_AS_IS) &&
+     !curl_url_set(parsed, CURLUPART_USER, NULL, 0) &&
+     !curl_url_set(parsed, CURLUPART_PASSWORD, NULL, 0) &&
+     !curl_url_set(parsed, CURLUPART_OPTIONS, NULL, 0) &&
+     !curl_url_set(parsed, CURLUPART_FRAGMENT, NULL, 0))
+    curl_url_get(parsed, CURLUPART_URL, &result, 0);
+  curl_url_cleanup(parsed);
+  return result;
+}
+
+void ci_string_free(char *value) { curl_free(value); }
+
 int ci_url_host_path(const char *url, char *buffer, size_t capacity) {
   CURLU *parsed = curl_url();
   char *host = NULL, *path = NULL;

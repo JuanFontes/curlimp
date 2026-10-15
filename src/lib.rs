@@ -3,6 +3,8 @@ pub mod cli;
 pub mod completion;
 pub mod engine;
 pub mod export;
+mod export_field;
 pub mod profiles;
+mod spool;
 pub mod transfers;
 pub mod writeout;
