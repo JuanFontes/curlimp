@@ -209,6 +209,17 @@ Dependabot proposes weekly updates for website npm packages, SHA-pinned GitHub A
 
 The **Dependency review** check runs on every PR and rejects introduced known high/critical dependency vulnerabilities, including build/development dependencies. **Native reporting policy** runs the offline reporter tests. Reporting-only changes do not trigger native runtime builds; changes to build workflows, native inputs, and builder images retain their platform tests and cache policy. Dependabot PRs use read-only credentials and do not receive publication secrets. Review changes to Actions and Docker images carefully: automatic proposals are not a trust decision. Security alerts, secret scanning, push protection, private reporting, and required checks are repository settings, separate from the committed workflow files.
 
+All PRs pass **Lint and formatting** before security and any selected downstream checks. Selection depends on the diff, not the author, so human and Dependabot changes follow the same rules:
+
+| Change                                                                                                            | Additional PR validation                                      |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Only SHA/version-comment updates to existing `checkout`, `setup-node`, or `setup-python` steps in the quality job | None: the required lint gate already runs the updated Actions |
+| Pages Actions, website dependencies, or public examples                                                           | Website build and checks                                      |
+| Runtime build/cache Actions, native inputs, or builder images                                                     | Linux amd64/arm64 and macOS builds and tests                  |
+| PR orchestration logic, routing code, or shared runtime/site inputs                                               | Both runtime and website checks                               |
+
+Changes to Action identities, inputs, permissions, or conditions in the PR orchestrator retain full validation. Mixed changes combine the required checks. A missing base revision fails the gate instead of skipping checks. The required **PR checks** result rejects failures and unexpected skips. The PR-only orchestrator does not trigger another native build after merging; a manual **Build and package runtime** run remains available when release artifacts are needed for that exact revision. Actions used for deployment are additionally exercised by the Pages deployment on `main`.
+
 To update the engine, review and import the required source changes, preserve their notices, and update `vendor/engine/ORIGIN.md`. Regenerate the existing `SHA256SUMS` file list and its hash in `engine.lock`, then update the profile catalog when needed. Build and test all three platform/architecture combinations in CI. Compare network captures with real browsers before claiming a fidelity improvement.
 
 The runtime includes build provenance at `/opt/native/engine-build.txt`, plus `engine-origin.md`, `engine-inputs.sha256`, `runtime-libraries.txt`, and `runtime-packages.txt`. Inspect them in a filesystem export or with `docker cp`; the diagnostic image also supports `--entrypoint cat`.
