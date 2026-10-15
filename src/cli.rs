@@ -359,6 +359,9 @@ pub(crate) fn apply(
 }
 
 pub fn parse(args: Vec<String>) -> Result<Action, CliError> {
+    if args.is_empty() {
+        return Ok(Action::Help);
+    }
     // Shell completion only reads local catalog data. Never interpret these
     // words as a transfer or evaluate their values as shell code.
     if args.first().is_some_and(|arg| arg == "--complete-profiles") {

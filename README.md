@@ -85,11 +85,13 @@ docker run --rm juanfontes/curlimp firefox147 \
 
 Here, `-i` includes headers and the body. `/status/418` deliberately returns an HTTP error with a small body; `/status/200` has an empty body. `-sS` suppresses routine output while keeping error messages visible. `--impersonate firefox147` is also supported.
 
-The untagged image uses Docker's `latest` tag, which follows promoted stable releases. Docker can reuse an older cached copy; update it with `docker pull juanfontes/curlimp`, or add `--pull=always` before the image name. For fixed deployments, pin `juanfontes/curlimp:0.5.1` or a digest. [Docker setup and updates →](https://juanfontes.github.io/curlimp/docs/docker/)
+The untagged image uses Docker's `latest` tag, which follows promoted stable releases. Docker can reuse an older cached copy; update it with `docker pull juanfontes/curlimp`, or add `--pull=always` before the image name. For fixed deployments, pin `juanfontes/curlimp:0.5.2` or a digest. [Docker setup and updates →](https://juanfontes.github.io/curlimp/docs/docker/)
 
 <a id="http-examples"></a>
 
 ## 🧰 Everyday examples
+
+Run `curlimp` or `curlimp --help` for the built-in guide, with copyable examples before the option reference. In Docker, use `docker run --rm juanfontes/curlimp`.
 
 These examples use the native `curlimp` command. To use Docker, replace `curlimp` with `docker run --rm juanfontes/curlimp`. Named output files inside a container need a [host directory mount](#response-exports); shell redirection writes on the host.
 
@@ -263,7 +265,7 @@ macOS packages target macOS 13.0 and are signed ad hoc, not notarized. Validatio
 
 ### ⌨️ Enable profile completion in Zsh
 
-**Installed with Homebrew?** The completion file is already installed. If your Zsh setup loads Homebrew completions, open a new terminal and use Tab. Otherwise, follow the [Homebrew completion setup](https://juanfontes.github.io/curlimp/docs/completion/#homebrew-installations). No shell files are changed by the installer.
+**Installed with Homebrew?** The completion file is already installed, and the installer prints the activation tip below. Future sessions load it automatically if your Zsh setup loads Homebrew completions. Otherwise, follow the [Homebrew completion setup](https://juanfontes.github.io/curlimp/docs/completion/#homebrew-installations). No shell files are changed by the installer.
 
 If you installed Curlimp in the tab that is still open, register it in that session:
 
