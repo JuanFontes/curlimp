@@ -26,7 +26,7 @@ The report writes Markdown and JSON evidence even when attention is required:
 | `1`       | A source, schema, or applicability check failed; the report is incomplete                               |
 | `2`       | Sources completed, but one or more advisories require triage                                            |
 
-The known nghttp2 backport is accepted only for its exact advisory ID and the expected patch digest. New advisories are not automatically dismissed because a dependency is patched. Ambiguous ranges and conflicting affected/patched metadata require review. The live report is an alerting workflow, separate from the required PR check; its failures must be investigated, not hidden with `continue-on-error` or broad ignore rules.
+Reviewed backports are accepted only for their specific advisory IDs and expected patch digests. The ngtcp2 and c-ares dispositions also require the exact pinned archive, version, build recipe, and affected/patched metadata; changes reopen triage. New advisories are not automatically dismissed because a dependency is patched. Ambiguous ranges and conflicting affected/patched metadata require review. The live report is an alerting workflow, separate from the required PR check; its failures must be investigated, not hidden with `continue-on-error` or broad ignore rules.
 
 To inspect a report locally:
 
@@ -35,6 +35,29 @@ python3 scripts/dependency_report.py --output dependency-report
 ```
 
 An optional `GITHUB_TOKEN` increases the GitHub API rate limit. Tokens are sent only to the GitHub API. Reports do not update dependencies, create issues, or publish releases. See [CONTRIBUTING.md](CONTRIBUTING.md#engine-inputs-and-updates) for the native update procedure.
+
+## Reviewed native advisories
+
+These dispositions remain visible in the JSON and Markdown report, with the original affected/patched metadata and review sources. They apply only to the exact inputs checked by `scripts/dependency_report.py`; they do not ignore new advisories or infer safety from a generic minimum version.
+
+### ngtcp2: CVE-2026-40170 / GHSA-f523-465f-8c8f
+
+Curlimp 0.5.1 adds the [official qlog fix](https://github.com/ngtcp2/ngtcp2/commit/708a7640c1f48fb8ffb540c4b8ea5b4c1dfb8ee5) to `vendor/engine/patches/ngtcp2.patch`, while retaining ngtcp2 1.20.0 and the existing browser-related changes. The [advisory](https://github.com/ngtcp2/ngtcp2/security/advisories/GHSA-f523-465f-8c8f) covers a stack buffer overflow when qlog serializes peer transport parameters; upstream fixes it in 1.22.1. The backport enlarges the parameter-event buffer as upstream prescribes.
+
+`python3 tests/native_security.py` downloads and verifies the pinned archive, applies the complete vendored ngtcp2 patch, and compiles its core with AddressSanitizer in a temporary directory. It checks complete serialized events with long transport parameters, optional fields, both endpoint roles, and disabled logging. The regression reproduced the overflow before the fix and passes with it. CI runs it on Linux amd64/arm64 and macOS arm64. Sanitizer instrumentation is confined to the test build and is not shipped in runtime images or native downloads.
+
+### c-ares: CVE-2026-33630 / GHSA-6wfj-rwm7-3542
+
+The [advisory](https://github.com/c-ares/c-ares/security/advisories/GHSA-6wfj-rwm7-3542) lists an unbounded affected range, `> 1.32.3`, but identifies 1.34.7 as patched. Its description and the [official changelog](https://c-ares.org/changelog.html) say the query-completion fix shipped in 1.34.7. Version 1.34.8 reverts a callback signature change; it retains the security fix.
+
+The reviewed disposition is **fixed-in-pinned-source**, restricted to c-ares 1.34.8 and archive SHA-256 `c222b6d681096f9444d2c4863d2c1174019e27cacca0a4a5c114d36dd7d7bf78`. Evidence checked on 2026-10-15:
+
+- The [v1.34 fix commit](https://github.com/c-ares/c-ares/commit/d823199b688052dcdc1646f2ab4cb8c16b1c644a) consolidates deferred query completion and fixes reentrant double-free handling.
+- [The 1.34.8 tag descends from that commit](https://github.com/c-ares/c-ares/compare/d823199b688052dcdc1646f2ab4cb8c16b1c644a...v1.34.8); the later changes do not revert the affected implementation.
+- `src/lib/ares_process.c` and `test/ares-test-mock.cc` in the verified release archive match the Git blobs at the fix commit. Their SHA-256 values are `8d3ea0ef9f3334733b73e9a0b51ed112ba9be98c58af236e0b283b7d9186f68f` and `a8d36fadd2dfdaf789bb7699e211158714addc5f50ee506cd140448d72a32a4f`, respectively.
+- The reviewed build recipe applies no local c-ares patch. The reporter checks its digest, the source version/hash, and the exact conflicting metadata before applying this disposition.
+
+This is a review of one advisory against one source archive, not a claim that every c-ares version after 1.34.7 is unaffected by every vulnerability. Older pins, modified sources or recipes, different IDs, and changed affected/patched metadata remain actionable.
 
 ## Validation limits
 
