@@ -11,7 +11,16 @@ lead: 'Type a little or a lot of a profile name. Tab matches everything you have
 
 `brew install juanfontes/tap/curlimp` installs the completion file in Homebrew's Zsh directory. If your shell already loads Homebrew completions, just start a new terminal.
 
-Otherwise, put the `fpath` line below **before any existing `compinit` call** in `~/.zshrc`. Use the whole block only if your shell does not already initialize completion:
+**Did you install Curlimp in the same terminal tab you are using now?** An existing Zsh session does not automatically register the newly installed file. Open a new tab, or run this in the current session if completion is already initialized:
+
+```zsh
+source <(curlimp --completions zsh)
+zstyle ':completion:*:curlimp:*' menu yes select
+```
+
+The first line registers Curlimp immediately. The second enables a selection menu for this command; add that `zstyle` line to `~/.zshrc` if you want to keep the preference. Neither line modifies a configuration file by itself.
+
+If completion still does not work in a new tab, put the `fpath` line below **before any existing `compinit` call** in `~/.zshrc`. Use the whole block only if your shell does not already initialize completion:
 
 ```zsh
 fpath=("$(brew --prefix)/share/zsh/site-functions" $fpath)
@@ -22,7 +31,7 @@ compinit
 zstyle ':completion:*:curlimp:*' menu yes select
 ```
 
-The installer does not change your shell files. You do not need to source the generated script separately. `brew uninstall curlimp` removes Homebrew's completion file along with the executable; restart your shell to clear loaded completion functions.
+The installer does not change your shell files. New sessions using this setup do not need to source the generated script separately. `brew uninstall curlimp` removes Homebrew's completion file along with the executable; restart your shell to clear loaded completion functions.
 
 ## Downloaded native bundles
 
@@ -45,6 +54,8 @@ The Rust CLI reads the shared profile catalog and filters candidates. Zsh handle
 ## Match any prefix
 
 Type `curlimp ` and press Tab to show all available profiles. With the optional menu enabled, use Tab or the arrow keys to choose, then Enter to accept the selection and continue editing. A second Enter executes the finished command. Custom Zsh key bindings can change these keys.
+
+Without the menu setting, the first Tab can insert just the shared prefix: `curlimp chrom` becomes `curlimp chrome`. Press Tab again to list the matching versions. A unique prefix such as `chrome15` completes directly to `chrome150`.
 
 | Text before Tab      | Matching names                             |
 | -------------------- | ------------------------------------------ |

@@ -32,8 +32,13 @@ const download = (platform: string) =>
     supported by this formula.
   </p>
   <p>
-    Homebrew does not edit your shell configuration. If your Zsh setup already
-    loads Homebrew completions, start a new shell; otherwise, follow the{' '}
+    Homebrew does not edit your shell configuration or register completions in a
+    terminal tab that is already open. If your Zsh setup loads Homebrew
+    completions, open a new tab after installation. To keep using the current
+    tab, register Curlimp with{' '}
+    <code>source &lt;(curlimp --completions zsh)</code>
+    after completion has been initialized. For the full setup and selection
+    menu, follow the{' '}
     <a href={`${docHref('completion')}#homebrew-installations`}>
       Homebrew completion instructions
     </a>
