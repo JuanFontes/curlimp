@@ -265,6 +265,15 @@ macOS packages target macOS 13.0 and are signed ad hoc, not notarized. Validatio
 
 **Installed with Homebrew?** The completion file is already installed. If your Zsh setup loads Homebrew completions, open a new terminal and use Tab. Otherwise, follow the [Homebrew completion setup](https://juanfontes.github.io/curlimp/docs/completion/#homebrew-installations). No shell files are changed by the installer.
 
+If you installed Curlimp in the tab that is still open, register it in that session:
+
+```zsh
+source <(curlimp --completions zsh)
+zstyle ':completion:*:curlimp:*' menu yes select
+```
+
+This assumes Zsh completion is already initialized. The `zstyle` line enables a selection menu; add it to `~/.zshrc` to keep that preference. Without it, the first Tab can complete `chrom` to `chrome`; another Tab lists the versions.
+
 **Using a downloaded native bundle?** With `curlimp` on your `PATH`, add this to `~/.zshrc`:
 
 ```zsh
