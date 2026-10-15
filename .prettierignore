@@ -1,0 +1,11 @@
+# Imported sources and notices must retain their original contents.
+/vendor/
+/licenses/
+/website/public/THIRD-PARTY-NOTICES.txt
+# Generated output and local notes are not project source.
+/docs/
+/dist/
+/target/
+/website/dist/
+/website/.astro/
+**/node_modules/

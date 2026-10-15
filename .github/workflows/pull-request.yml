@@ -1,0 +1,111 @@
+name: Quality and pull request checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint and formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      RUSTUP_TOOLCHAIN: '1.90.0'
+    outputs:
+      runtime: ${{ steps.changes.outputs.runtime }}
+      site: ${{ steps.changes.outputs.site }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The checked-out merge and PR base are needed for deletion-safe routing.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: .github/requirements.txt
+      - name: Install pinned lint tools
+        run: |
+          python -m pip install --disable-pip-version-check -r .github/requirements.txt
+          npm ci --ignore-scripts --prefix website
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt
+      - name: Install verified actionlint binary
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl --fail --location --retry 3 --connect-timeout 10 --max-time 60 \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output actionlint.tar.gz
+          echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz' | sha256sum -c -
+          mkdir -p lint-bin
+          tar -xzf actionlint.tar.gz -C lint-bin actionlint
+          echo "$RUNNER_TEMP/lint-bin" >> "$GITHUB_PATH"
+      - name: Check all owned source files
+        run: python3 scripts/check-quality.py
+      - name: Test PR routing
+        run: python3 tests/pr_checks.py
+      - name: Select downstream checks from the merge diff
+        if: github.event_name == 'pull_request'
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/pr_checks.py --base "$BASE_SHA" >> "$GITHUB_OUTPUT"
+
+  security:
+    needs: quality
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/dependency-review.yml
+
+  runtime:
+    needs: quality
+    if: github.event_name == 'pull_request' && needs.quality.outputs.runtime == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  site:
+    needs: quality
+    if: github.event_name == 'pull_request' && needs.quality.outputs.site == 'true'
+    uses: ./.github/workflows/site-build.yml
+
+  result:
+    name: PR checks
+    if: always() && github.event_name == 'pull_request'
+    needs: [quality, security, runtime, site]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require the gate and every selected check to pass
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          SECURITY_RESULT: ${{ needs.security.result }}
+          RUNTIME_RESULT: ${{ needs.runtime.result }}
+          SITE_RESULT: ${{ needs.site.result }}
+          RUNTIME_REQUIRED: ${{ needs.quality.outputs.runtime }}
+          SITE_REQUIRED: ${{ needs.quality.outputs.site }}
+        run: |
+          test "$QUALITY_RESULT" = success
+          test "$SECURITY_RESULT" = success
+          if [ "$RUNTIME_REQUIRED" = true ]; then
+            test "$RUNTIME_RESULT" = success
+          else
+            test "$RUNTIME_REQUIRED" = false
+            test "$RUNTIME_RESULT" = skipped
+          fi
+          if [ "$SITE_REQUIRED" = true ]; then
+            test "$SITE_RESULT" = success
+          else
+            test "$SITE_REQUIRED" = false
+            test "$SITE_RESULT" = skipped
+          fi

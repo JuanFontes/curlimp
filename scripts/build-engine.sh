@@ -1,7 +1,7 @@
 #!/bin/sh
 # Build the vendored, verified superbuild and collect its native output.
 set -eu
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "$script_dir/../engine.lock"
 workspace=${1:?Usage: build-engine.sh absolute-workspace absolute-prefix [jobs]}
 prefix=${2:?Missing installation prefix}

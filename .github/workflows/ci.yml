@@ -8,6 +8,8 @@ on:
       - 'README.md'
       - 'docker/README.md'
       - 'CONTRIBUTING.md'
+      - 'CHANGELOG.md'
+      - '.github/release-notes/**'
       - '.gitignore'
       - '.github/workflows/pages.yml'
       - 'scripts/published_release.py'
@@ -18,22 +20,14 @@ on:
       - '.github/workflows/dependency-report.yml'
       - 'scripts/dependency_report.py'
       - 'tests/dependency_report.py'
-  pull_request:
-    paths-ignore:
-      - 'website/**'
-      - 'README.md'
-      - 'docker/README.md'
-      - 'CONTRIBUTING.md'
-      - '.gitignore'
-      - '.github/workflows/pages.yml'
-      - 'scripts/published_release.py'
-      - 'tests/published_release.py'
-      - 'SECURITY.md'
-      - '.github/dependabot.yml'
-      - '.github/workflows/dependency-review.yml'
-      - '.github/workflows/dependency-report.yml'
-      - 'scripts/dependency_report.py'
-      - 'tests/dependency_report.py'
+      - '.github/requirements.txt'
+      - '.prettierrc.json'
+      - '.prettierignore'
+      - 'ruff.toml'
+      - '.shellcheckrc'
+      - 'scripts/check-quality.py'
+      - '.github/workflows/site-build.yml'
+  workflow_call:
   workflow_dispatch:
     inputs:
       runtime_refresh:

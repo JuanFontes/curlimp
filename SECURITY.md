@@ -8,7 +8,7 @@ Security fixes target the latest stable release. Older versions do not receive a
 
 ## Dependency monitoring
 
-- Dependabot alerts and security updates cover dependencies recognized by GitHub. Weekly version updates cover website npm packages, GitHub Actions, and the Debian/Rust images in `docker/Dockerfile.build`. Major npm/action updates remain separate from grouped minor/patch updates. Updates require review and the applicable CI checks; automatic merge is not configured.
+- Dependabot alerts and security updates cover dependencies recognized by GitHub. Weekly version updates cover website npm packages, GitHub Actions, Python lint tools, and the Debian/Rust images in `docker/Dockerfile.build`. Major npm/action updates remain separate from grouped minor/patch updates. Updates require review and the applicable CI checks; automatic merge is not configured.
 - The root Dockerfile's published Curlimp version stays under release control. Native dependencies pinned in CMake and `engine.lock` require explicit source, hash, patch, and compatibility review. Cargo currently has no external crates; add Cargo monitoring when that changes.
 - The **Dependency review** PR check rejects newly introduced known high/critical vulnerabilities in supported dependency changes, including development dependencies. Lower-severity findings remain visible for triage. It does not assess arbitrary native pins or establish the safety of the whole repository.
 - Actions remain pinned to commit SHAs. Dependabot can update these pins, but GitHub documents that its Actions vulnerability alerts require semantic version references; SHA pins are not fully covered by those alerts.
@@ -20,11 +20,11 @@ The **Native dependency maintenance report** runs weekly, manually, and after re
 
 The report writes Markdown and JSON evidence even when attention is required:
 
-| Exit code | Meaning |
-| --- | --- |
-| `0` | Integrated sources completed without unresolved matching advisories; manual coverage limits still apply |
-| `1` | A source, schema, or applicability check failed; the report is incomplete |
-| `2` | Sources completed, but one or more advisories require triage |
+| Exit code | Meaning                                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------------------- |
+| `0`       | Integrated sources completed without unresolved matching advisories; manual coverage limits still apply |
+| `1`       | A source, schema, or applicability check failed; the report is incomplete                               |
+| `2`       | Sources completed, but one or more advisories require triage                                            |
 
 The known nghttp2 backport is accepted only for its exact advisory ID and the expected patch digest. New advisories are not automatically dismissed because a dependency is patched. Ambiguous ranges and conflicting affected/patched metadata require review. The live report is an alerting workflow, separate from the required PR check; its failures must be investigated, not hidden with `continue-on-error` or broad ignore rules.
 

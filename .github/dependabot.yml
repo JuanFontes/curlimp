@@ -30,6 +30,21 @@ updates:
     commit-message:
       prefix: 'ci(deps)'
 
+  - package-ecosystem: pip
+    directory: /.github
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:45'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    groups:
+      lint-tools:
+        applies-to: version-updates
+        update-types: [minor, patch]
+    commit-message:
+      prefix: 'ci(deps)'
+
   # Only maintainer build images. The root Dockerfile follows release promotion.
   - package-ecosystem: docker
     directory: /docker

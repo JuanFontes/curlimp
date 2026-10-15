@@ -1,0 +1,7 @@
+target-version = "py311"
+extend-exclude = ["vendor", "licenses", "docs", "dist", "target", "website/dist"]
+
+[lint]
+# Catch syntax, undefined names, unused bindings, and other Pyflakes errors.
+# Existing Python whitespace conventions are not rewritten by this gate.
+select = ["E9", "F"]
