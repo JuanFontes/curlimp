@@ -21,6 +21,10 @@ def inside(argument):
 # Preserve a fixture cwd inside the root for automatically named export files.
 cwd = os.getcwd()
 arguments = [inside(arg) for arg in sys.argv[1:]]
+# CA fixtures may also arrive through environment overrides, not just argv.
+for name in ('CURL_CA_BUNDLE', 'SSL_CERT_FILE', 'SSL_CERT_DIR'):
+    if name in os.environ:
+        os.environ[name] = os.pathsep.join(inside(path) for path in os.environ[name].split(os.pathsep))
 os.chroot(ROOT)
 os.chdir(inside(cwd) if cwd.startswith(ROOT + '/') else '/work')
 os.execv('/usr/local/bin/curlimp', ['curlimp', *arguments])

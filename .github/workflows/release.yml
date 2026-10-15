@@ -45,6 +45,7 @@ jobs:
           main_revision = api('git/ref/heads/main')['object']['sha']
           validate_run(run, os.environ['GITHUB_SHA'], main_revision, repo)
           version = subprocess.check_output(['python3', 'scripts/release_version.py'], text=True).strip()
+          subprocess.run(['python3', 'scripts/check-distribution.py'], check=True)
           assert Path(f'.github/release-notes/{version}.md').read_text().strip(), 'Missing release notes'
           tag = 'v' + version
           refs = api('git/matching-refs/tags/' + tag)
@@ -121,23 +122,31 @@ jobs:
           gh release download "v$RELEASE_VERSION" --dir downloaded
           (cd downloaded && sha256sum --check SHA256SUMS)
           cmp dist/release/SHA256SUMS downloaded/SHA256SUMS
-      - name: Update Docker Hub documentation
+      # Query after artifact verification, immediately before stable-channel changes.
+      - name: Recheck current stable promotion policy
+        id: promotion
+        run: python3 scripts/release_policy.py --version "$RELEASE_VERSION" --repository "$GITHUB_REPOSITORY"
+      - name: Publish versioned release without moving stable channels
+        run: |
+          gh release edit "v$RELEASE_VERSION" --draft=false \
+            --prerelease=${{ steps.promotion.outputs.prerelease }} --latest=false
+      - name: Promote newer stable image
+        if: steps.promotion.outputs.promote == 'true'
+        run: |
+          docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$IMAGE_DIGEST"
+          latest_digest=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{.Manifest.Digest}}')
+          test "$latest_digest" = "$IMAGE_DIGEST"
+      - name: Update stable Docker Hub documentation
+        if: steps.promotion.outputs.promote == 'true'
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: python3 scripts/update-dockerhub.py
-      - name: Publish release and promote stable image
-        run: |
-          case "$RELEASE_VERSION" in
-            *-*) gh release edit "v$RELEASE_VERSION" --draft=false --prerelease --latest=false ;;
-            *)
-              docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$IMAGE_DIGEST"
-              latest_digest=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{.Manifest.Digest}}')
-              test "$latest_digest" = "$IMAGE_DIGEST"
-              gh release edit "v$RELEASE_VERSION" --draft=false --latest
-              ;;
-          esac
-          printf 'Published Curlimp %s\nImage digest: %s\n' "$RELEASE_VERSION" "$IMAGE_DIGEST"
+      - name: Mark promoted stable release as GitHub Latest
+        if: steps.promotion.outputs.promote == 'true'
+        run: gh release edit "v$RELEASE_VERSION" --latest
+      - name: Report publication
+        run: printf 'Published Curlimp %s\nImage digest:%s\nPromoted stable:%s\n' "$RELEASE_VERSION" "$IMAGE_DIGEST" '${{ steps.promotion.outputs.promote }}'
       - name: Sign out of Docker Hub
         if: always()
         run: docker logout

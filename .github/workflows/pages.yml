@@ -12,6 +12,8 @@ on:
       - 'docker/README.md'
       - '.github/workflows/pages.yml'
       - 'scripts/published_release.py'
+      - 'scripts/release_policy.py'
+      - 'tests/release_policy.py'
       - 'scripts/release_version.py'
       - 'tests/published_release.py'
   pull_request:
@@ -24,6 +26,8 @@ on:
       - 'docker/README.md'
       - '.github/workflows/pages.yml'
       - 'scripts/published_release.py'
+      - 'scripts/release_policy.py'
+      - 'tests/release_policy.py'
       - 'scripts/release_version.py'
       - 'tests/published_release.py'
   workflow_dispatch:
@@ -57,7 +61,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Test publication gate
         working-directory: .
-        run: python3 tests/published_release.py
+        run: |
+          python3 tests/published_release.py
+          python3 tests/release_policy.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
@@ -91,7 +97,14 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Recheck latest stable downloads immediately before deployment
+        id: publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/published_release.py
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - name: Deploy
+        if: steps.publication.outputs.published == 'true'
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

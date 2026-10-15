@@ -23,6 +23,11 @@ on:
       - 'scripts/published_release.py'
       - 'tests/published_release.py'
   workflow_dispatch:
+    inputs:
+      runtime_refresh:
+        description: Optional urgent runtime-package refresh generation (default UTC week)
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -35,12 +40,25 @@ jobs:
   workflow-helpers:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    outputs:
+      runtime-refresh: ${{ steps.refresh.outputs.generation }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: python3 tests/native_cache.py
       - run: python3 tests/dependency_report.py
       - run: python3 tests/published_release.py
+      - run: python3 tests/release_policy.py
+      - run: python3 tests/runtime_distribution.py
+      - run: python3 scripts/check-distribution.py
+      - name: Choose one runtime refresh generation for this entire run
+        id: refresh
+        env:
+          REFRESH_OVERRIDE: ${{ inputs.runtime_refresh }}
+        run: |
+          generation=$(python3 scripts/runtime_refresh.py --override "$REFRESH_OVERRIDE")
+          echo "generation=$generation" >> "$GITHUB_OUTPUT"
   docker:
+    needs: workflow-helpers
     strategy:
       fail-fast: false
       matrix:
@@ -53,6 +71,8 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    env:
+      RUNTIME_REFRESH: ${{ needs.workflow-helpers.outputs.runtime-refresh }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Set up isolated build cache
@@ -72,16 +92,18 @@ jobs:
           context: .
           file: docker/Dockerfile.build
           platforms: ${{ matrix.platform }}
-          build-args: NATIVE_JOBS=2
+          build-args: |
+            NATIVE_JOBS=2
+            RUNTIME_REFRESH=${{ env.RUNTIME_REFRESH }}
           target: test-minimal
           cache-from: type=gha,version=2,scope=runtime-${{ matrix.arch }}-v1
           cache-to: type=gha,version=2,scope=runtime-${{ matrix.arch }}-v1,mode=max
           # Always execute the tests, including against the exact minimal rootfs.
           no-cache-filters: test,test-minimal
       - name: Export runtime artifact
-        run: docker buildx build --builder '${{ steps.buildx.outputs.name }}' -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --target runtime-artifacts --output type=local,dest=dist/runtime/${{ matrix.arch }} .
+        run: docker buildx build --builder '${{ steps.buildx.outputs.name }}' -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --build-arg RUNTIME_REFRESH="$RUNTIME_REFRESH" --target runtime-artifacts --output type=local,dest=dist/runtime/${{ matrix.arch }} .
       - name: Build ready-to-run runtime image
-        run: docker buildx build --builder '${{ steps.buildx.outputs.name }}' -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --build-arg SOURCE_REVISION="$GITHUB_SHA" --build-arg RELEASE_VERSION="$RELEASE_VERSION" --target runtime --load -t curlimp:runtime .
+        run: docker buildx build --builder '${{ steps.buildx.outputs.name }}' -f docker/Dockerfile.build --platform ${{ matrix.platform }} --build-arg NATIVE_JOBS=2 --build-arg RUNTIME_REFRESH="$RUNTIME_REFRESH" --build-arg SOURCE_REVISION="$GITHUB_SHA" --build-arg RELEASE_VERSION="$RELEASE_VERSION" --target runtime --load -t curlimp:runtime .
       - name: Derive distribution image without source compilation
         run: docker build --builder default --platform ${{ matrix.platform }} --build-arg RUNTIME_IMAGE=curlimp:runtime --network none -t curlimp:local .
       - name: Inspect packaged engine and profiles without network
@@ -89,6 +111,10 @@ jobs:
           docker run --rm --network none curlimp:local --version
           docker run --rm --network none curlimp:local --list-profiles
           cat dist/runtime/${{ matrix.arch }}/rootfs/opt/native/engine-build.txt
+          cat dist/runtime/${{ matrix.arch }}/rootfs/opt/native/runtime-refresh.txt
+          cat dist/runtime/${{ matrix.arch }}/rootfs/opt/native/runtime-packages.txt
+      - name: Test final container DNS HTTPS and nonroot mounted export
+        run: python3 scripts/check-runtime-container.py --image curlimp:local
       - name: Package Linux CLI and libraries
         run: |
           python3 scripts/package-release.py \
@@ -97,7 +123,7 @@ jobs:
       - name: Install native test fixtures
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh
+          sudo apt-get install -y --no-install-recommends python3 openssl curl nghttp2-server zsh procps
       - name: Test the extracted bundle directly on the native Linux runner
         run: |
           bundle="curlimp-${RELEASE_VERSION}-linux-${{ matrix.arch }}"

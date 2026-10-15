@@ -185,11 +185,19 @@ class Compatibility(unittest.TestCase):
         self.assertTrue(headers.read_bytes().startswith(b"HTTP/1.1 200"))
 
     def test_audit_empty_data_separators(self):
-        for flags in (["-d", "", "-d", "a=1"], ["-d", "a=1", "-d", ""],
-                      ["-d", "", "-d", "", "-d", "a=1"],
-                      ["--data-binary", "", "--data-binary", "a=1"]):
+        # curl 8.23 tool_getparam.c:set_data appends '&' only after actual data.
+        # Debian's older system curl adds separators after initial empty values.
+        for flags, body in [(["-d", "", "-d", "a=1"], b"a=1"),
+                            (["-d", "a=1", "-d", ""], b"a=1&"),
+                            (["-d", "", "-d", "", "-d", "a=1"], b"a=1"),
+                            (["--data-binary", "", "--data-binary", "a=1"], b"a=1")]:
             with self.subTest(flags=flags):
-                self.compare([*flags, self.url + "/echo"])
+                result = self.run_cli(["--no-impersonate", *flags, self.url + "/echo"])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                captured = json.loads(result.stdout)
+                self.assertEqual(base64.b64decode(captured["body"]), body)
+                self.assertEqual(captured["method"], "POST")
+                self.assertEqual(captured["path"], "/echo")
         for url in ("/echo", "/echo?old=1", "/echo?", "/echo?old=?"):
             self.compare(["-G", "-d", "", self.url + url])
             self.compare(["-G", self.url + url])
@@ -217,8 +225,12 @@ class Compatibility(unittest.TestCase):
     def test_audit_writeout_file_and_escapes(self):
         source = self.root / "format.txt"
         source.write_bytes(b"first\r\n%{http_code}\x00last\n" + rb"\n")
-        self.compare(["-o", os.devnull, "-w", "@" + str(source), self.url])
-        self.compare(["-o", os.devnull, "-w", "@-", self.url], data=source.read_bytes())
+        # curl 8.23 tool_paramhlp.c:file2string removes CR/LF/NUL bytes;
+        # older curl truncates at NUL. The bytes after NUL must survive.
+        for argument, data in [("@" + str(source), None), ("@-", source.read_bytes())]:
+            result = self.run_cli(["-o", os.devnull, "-w", argument, self.url], data=data)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, b"first200last\n")
         for value in (r"a\\b", r"a\\n", r"a\q", "trailing\\"):
             self.compare(["-o", os.devnull, "-w", value, self.url])
 
