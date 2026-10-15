@@ -2,7 +2,7 @@
 ENGINE_VERSION=2.2.3
 ENGINE_REVISION=6e8f87760a4dd96771e96fc9d55440dcd8845243
 # SHA-256 of vendor/engine/SHA256SUMS.
-ENGINE_VENDOR_SHA256=2ba04e8662fa435279e6c36bab7bc44826d3a5205a223253a2dd6f86de60a63c
+ENGINE_VENDOR_SHA256=8dabcdff34628f31cd6b4f66bce06b98f78bb9d95b06c98d6e2b8ab4339bf432
 # This release's IDN preparation script does not verify its download itself.
 LIBIDN2_VERSION=2.3.7
 LIBIDN2_SOURCE_URL=https://ftp.gnu.org/gnu/libidn/libidn2-2.3.7.tar.gz

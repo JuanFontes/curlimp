@@ -75,7 +75,7 @@ docker run --rm juanfontes/curlimp firefox147 \
 
 Here, `-i` includes headers and the body. `/status/418` deliberately returns an HTTP error with a small body; `/status/200` has an empty body. `-sS` suppresses routine output while keeping error messages visible. `--impersonate firefox147` is also supported.
 
-The untagged image uses Docker's `latest` tag, which follows promoted stable releases. Docker can reuse an older cached copy; update it with `docker pull juanfontes/curlimp`, or add `--pull=always` before the image name. For fixed deployments, pin `juanfontes/curlimp:0.5.0` or a digest. [Docker setup and updates →](https://juanfontes.github.io/curlimp/docs/docker/)
+The untagged image uses Docker's `latest` tag, which follows promoted stable releases. Docker can reuse an older cached copy; update it with `docker pull juanfontes/curlimp`, or add `--pull=always` before the image name. For fixed deployments, pin `juanfontes/curlimp:0.5.1` or a digest. [Docker setup and updates →](https://juanfontes.github.io/curlimp/docs/docker/)
 
 <a id="http-examples"></a>
 

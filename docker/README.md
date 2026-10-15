@@ -2,7 +2,7 @@
 
 **Browser impersonation from your terminal. Ready to run with Docker.**
 
-![Release 0.5.0](https://img.shields.io/badge/Release-0.5.0-0F766E?style=flat-square)
+![Release 0.5.1](https://img.shields.io/badge/Release-0.5.1-0F766E?style=flat-square)
 ![Rust CLI](https://img.shields.io/badge/Rust-CLI-E57324?style=flat-square&logo=rust&logoColor=white)
 ![libcurl engine](https://img.shields.io/badge/libcurl-Engine-073551?style=flat-square&logo=curl&logoColor=white)
 ![Linux amd64 and arm64](https://img.shields.io/badge/Linux-amd64_%7C_arm64-334155?style=flat-square&logo=linux&logoColor=white)
@@ -11,9 +11,9 @@ Send HTTP requests with browser-specific TLS and HTTP settings using familiar cu
 
 The Rust CLI calls the bundled libcurl-impersonate engine directly. The image includes its runtime libraries and CA certificates. You only need Docker with Linux container support.
 
-**New in 0.5.0:** multiple URLs, optional bounded parallel transfers, per-URL output files, and ordered JSON arrays. JSON exports now use private temporary storage with bounded payload memory. The native engine and 38 browser profiles are unchanged; Chrome 150 remains the default.
+**New in 0.5.1:** an official ngtcp2 security fix, a native regression check with AddressSanitizer, and evidence-backed dependency advisory reporting. Multiple URLs, bounded parallel transfers, response exports, and the 38 browser profiles remain available; Chrome 150 is still the default.
 
-[Website & documentation](https://juanfontes.github.io/curlimp/) · [Source & full guide](https://github.com/JuanFontes/curlimp) · [Native downloads](https://github.com/JuanFontes/curlimp/releases/tag/v0.5.0) · [Changelog](https://github.com/JuanFontes/curlimp/blob/main/CHANGELOG.md) · [Report an issue](https://github.com/JuanFontes/curlimp/issues)
+[Website & documentation](https://juanfontes.github.io/curlimp/) · [Source & full guide](https://github.com/JuanFontes/curlimp) · [Native downloads](https://github.com/JuanFontes/curlimp/releases/tag/v0.5.1) · [Changelog](https://github.com/JuanFontes/curlimp/blob/main/CHANGELOG.md) · [Report an issue](https://github.com/JuanFontes/curlimp/issues)
 
 ## 🚀 Your first request
 
@@ -37,10 +37,10 @@ docker run --rm juanfontes/curlimp safari2601 \
 Flags may appear before or after the profile. `--impersonate PROFILE` still works; the last profile selection wins. Use a complete profile ID, not a prefix.
 
 - **`juanfontes/curlimp`** is all you need for everyday use. With no tag, Docker defaults to **`latest`**, which follows the newest validated stable release. Release candidates never replace it.
-- **`0.5.0`** is the versioned tag for this release; versioned tags remain unchanged.
+- **`0.5.1`** is the versioned tag for this release; versioned tags remain unchanged.
 - Both tags support **`linux/amd64` and `linux/arm64`**.
 
-This is an HTTP client, so it does not open a browser, render pages, or execute JavaScript. Version 0.5.0 supports **multiple URLs with one common request configuration and a documented subset of curl flags**.
+This is an HTTP client, so it does not open a browser, render pages, or execute JavaScript. Version 0.5.1 supports **multiple URLs with one common request configuration and a documented subset of curl flags**.
 
 ## ⌨️ Native `curlimp` and Zsh autocomplete
 
@@ -81,11 +81,11 @@ docker run --rm --pull=always juanfontes/curlimp \
 For scripts or CI, pin the release so that upgrades are deliberate:
 
 ```sh
-docker run --rm juanfontes/curlimp:0.5.0 \
+docker run --rm juanfontes/curlimp:0.5.1 \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```
 
-Use a digest when immutable selection is required. The root Dockerfile defaults to the versioned `juanfontes/curlimp:0.5.0` runtime tag, which release policy keeps unchanged. Override `RUNTIME_IMAGE` with a digest or, for local development, `--build-arg RUNTIME_IMAGE=curlimp:local`. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
+Use a digest when immutable selection is required. The root Dockerfile defaults to the versioned `juanfontes/curlimp:0.5.1` runtime tag, which release policy keeps unchanged. Override `RUNTIME_IMAGE` with a digest or, for local development, `--build-arg RUNTIME_IMAGE=curlimp:local`. Review the [release notes](https://github.com/JuanFontes/curlimp/releases) before upgrading; default profiles and supported options may change.
 
 ## 💾 Export TXT or JSON responses
 
@@ -190,7 +190,7 @@ Profiles are versioned presets, not an automatically refreshed browser list. Sel
 docker run --rm juanfontes/curlimp --list-profiles
 ```
 
-The command validates the catalog against the installed engine. See the [catalog](https://github.com/JuanFontes/curlimp/blob/v0.5.0/src/profiles.txt) and [native profile settings](https://github.com/JuanFontes/curlimp/blob/v0.5.0/vendor/engine/patches/curl.patch).
+The command validates the catalog against the installed engine. See the [catalog](https://github.com/JuanFontes/curlimp/blob/v0.5.1/src/profiles.txt) and [native profile settings](https://github.com/JuanFontes/curlimp/blob/v0.5.1/vendor/engine/patches/curl.patch).
 
 ### Profile selection and environment variables
 
@@ -365,7 +365,7 @@ Read the [body/header guide](https://juanfontes.github.io/curlimp/docs/body-and-
 | macOS Intel         | amd64         | Not available   |
 | Windows             | amd64 / arm64 | Not available   |
 
-[Download version 0.5.0 and SHA256SUMS](https://github.com/JuanFontes/curlimp/releases/tag/v0.5.0). Keep the entire extracted folder together. Linux includes its loader and runtime libraries; macOS includes its engine in `lib/`. macOS downloads are signed ad hoc and are not notarized. Windows and Intel Mac users can run the Linux image with a suitable Docker installation.
+[Download version 0.5.1 and SHA256SUMS](https://github.com/JuanFontes/curlimp/releases/tag/v0.5.1). Keep the entire extracted folder together. Linux includes its loader and runtime libraries; macOS includes its engine in `lib/`. macOS downloads are signed ad hoc and are not notarized. Windows and Intel Mac users can run the Linux image with a suitable Docker installation.
 
 ## 🧭 Scope and validation
 

@@ -27,6 +27,8 @@ on:
       - '.shellcheckrc'
       - 'scripts/check-quality.py'
       - '.github/workflows/site-build.yml'
+      # PR orchestration is exercised by the required PR gate before merge.
+      - '.github/workflows/pull-request.yml'
   workflow_call:
   workflow_dispatch:
     inputs:
@@ -88,6 +90,8 @@ jobs:
         run: |
           version=$(python3 scripts/release_version.py)
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Test native qlog security fix with AddressSanitizer
+        run: python3 tests/native_security.py
       - name: Test release packager
         run: |
           python3 tests/release_package.py
@@ -186,6 +190,8 @@ jobs:
           rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
           echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix nghttp2)/bin" >> "$GITHUB_PATH"
+      - name: Test native qlog security fix with AddressSanitizer
+        run: python3 tests/native_security.py
       - name: Test macOS packager with real Mach-O fixtures
         run: python3 tests/macos_package.py
       - name: Test native header and library rebuild tracking
@@ -253,7 +259,7 @@ jobs:
             --connect-timeout 10 --max-time 30 -o /dev/null https://httpbin.org/status/200
       - name: Cache verified native engine after bundle tests
         if: steps.native-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/macos-build/native
           key: ${{ steps.native-key.outputs.key }}
