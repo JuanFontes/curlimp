@@ -20,7 +20,7 @@ zstyle ':completion:*:curlimp:*' menu yes select
 
 The first line registers Curlimp immediately. The second enables a selection menu for this command; add that `zstyle` line to `~/.zshrc` if you want to keep the preference. Neither line modifies a configuration file by itself.
 
-Otherwise, put the `fpath` line below **before any existing `compinit` call** in `~/.zshrc`. Use the whole block only if your shell does not already initialize completion:
+If completion still does not work in a new tab, put the `fpath` line below **before any existing `compinit` call** in `~/.zshrc`. Use the whole block only if your shell does not already initialize completion:
 
 ```zsh
 fpath=("$(brew --prefix)/share/zsh/site-functions" $fpath)
@@ -31,7 +31,7 @@ compinit
 zstyle ':completion:*:curlimp:*' menu yes select
 ```
 
-The installer does not change your shell files. You do not need to source the generated script separately. `brew uninstall curlimp` removes Homebrew's completion file along with the executable; restart your shell to clear loaded completion functions.
+The installer does not change your shell files. New sessions using this setup do not need to source the generated script separately. `brew uninstall curlimp` removes Homebrew's completion file along with the executable; restart your shell to clear loaded completion functions.
 
 ## Downloaded native bundles
 
