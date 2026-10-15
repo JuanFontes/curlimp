@@ -56,7 +56,7 @@ curlimp -sS --cacert /path/to/ca-bundle.pem \
 
 The bundle must trust the destination certificate chain. The sample path is intentionally a placeholder, not a file shipped by this project. In Docker, mount your bundle and use its container path.
 
-Trust selection supports `--cacert`, `CURL_CA_BUNDLE`, `SSL_CERT_FILE` and `SSL_CERT_DIR`. The explicit CLI bundle takes precedence over the bundle environment variables. See the [installation guide](../installation/) for platform defaults.
+Trust selection supports `--cacert`, `CURL_CA_BUNDLE`, `SSL_CERT_FILE` and `SSL_CERT_DIR`. An explicit `--cacert` takes precedence over the environment and suppresses `SSL_CERT_DIR`. Without it, `CURL_CA_BUNDLE` also suppresses `SSL_CERT_DIR`; otherwise `SSL_CERT_FILE` and `SSL_CERT_DIR` can both contribute trust. See the [installation guide](../installation/) for platform defaults.
 
 `-k` / `--insecure` disables certificate verification. It is an explicit diagnostic opt-out, not a solution to a missing or incorrect trust bundle.
 

@@ -8,15 +8,14 @@ const families = [
   { name: 'Safari', match: /^safari/, platform: 'Desktop and iOS' },
   { name: 'Edge', match: /^edge/, platform: 'Desktop' },
   { name: 'Tor Browser', match: /^tor/, platform: 'Desktop; profile only' },
-  { name: 'OkHttp', match: /^okhttp/, platform: 'Android HTTP client' },
 ];
 ---
 
 <Doc
-  title="Browser and client profiles"
+  title="Browser profiles"
   slug="profiles"
   section="Usage"
-  description="Explore the curlimp profile catalog for Chrome, Firefox, Safari, Edge, Tor and OkHttp. Learn profile selection, environment priority and header overrides."
+  description="Explore the curlimp profile catalog for Chrome, Firefox, Safari, Edge and Tor. Learn profile selection, environment priority and header overrides."
 >
   <h2>Choose a profile</h2>
   <p>
@@ -79,14 +78,11 @@ const families = [
     The Tor profile does not connect to the Tor network or provide anonymity.
     Proxy routing is a separate setting.
   </p>
-  <blockquote>
-    <p>
-      <code>okhttp4_android</code> is an HTTP client preset whose bundled
-      headers include a desktop Safari User-Agent. Inspect or override its
-      headers before use; catalog availability does not establish OkHttp
-      fingerprint fidelity.
-    </p>
-  </blockquote>
+  <p>
+    Version 0.4.0 retires <code>okhttp4_android</code> and the native
+    <code>okhttp4</code> alias because its default headers were inconsistent
+    with the advertised client. Selecting either name now fails early.
+  </p>
   <h2>Check the installed engine</h2>
   <CodeBlock code={'curlimp --list-profiles\ncurlimp --version'} />
   <p>

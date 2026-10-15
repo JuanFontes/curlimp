@@ -67,9 +67,11 @@ printf 'first line\nsecond line\n' | curlimp -sS -i \
 
 Avoid `-d @file` when line endings or NUL bytes matter. Request bodies are fully buffered, so this is not a streaming upload interface.
 
+If a command has multiple `@-` readers, Curlimp consumes them in their argument order. This includes an earlier `-w @-` later replaced by another `-w`: the earlier reader still consumes its stdin content before a later body or header reader.
+
 ## Automatic TXT and JSON exports
 
-Use `--txt` or `--json-file` for automatically named files, or `--json-output` for a structured result on stdout. Docker file modes still require a volume mount. See [response exports](../response-exports/) for examples, field selection with `-i`/`-I`, binary encoding and limits.
+Use `--txt` or `--json-file` for automatically named files, or `--json-output` for a structured result on stdout. Docker file modes still require a volume mount. File exports themselves do not print the response on stdout; an explicitly requested `-c -` cookie jar may write there for TXT and JSON-file exports. See [response exports](../response-exports/) for examples, field selection with `-i`/`-I`, binary encoding and limits.
 
 ## Keep response and diagnostics separate
 
@@ -89,6 +91,6 @@ Call the native command directly, or pin the Docker image version:
 ```sh
 curlimp -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 
-docker run --rm juanfontes/curlimp:0.3.1 \
+docker run --rm juanfontes/curlimp:0.4.0 \
   -sS -o /dev/null -w '%{http_code}\n' https://httpbin.org/status/200
 ```

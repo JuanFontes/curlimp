@@ -1,6 +1,6 @@
 # Contributing
 
-For the published image and request examples, start with the [README](README.md#use-the-published-docker-image). Run the commands below from the repository root.
+For the published image and request examples, start with the [README](README.md#quick-start). Run the commands below from the repository root.
 
 ## Documentation website
 
@@ -168,6 +168,8 @@ After a successful release workflow, the Pages workflow rebuilds and checks the 
 
 `engine.lock` pins the checksum manifest of the local engine snapshot and the separate libidn2 source archive. The vendored CMake superbuild pins the remaining dependency sources. `scripts/prepare-engine.sh` checks the manifest and imported files before use; `scripts/build-engine.sh` (Linux) and `scripts/build-macos.sh` (Apple Silicon) compile them and run native feature checks. The native API bridge uses matching headers and libraries. Native profile definitions are compiled into the engine; `src/profiles.txt` lists their names and is embedded in the CLI at compile time.
 
+Run `python3 tests/dependency_report.py` for offline reporting-policy checks. To inspect current upstream releases and curl/nghttp2 security advisories, run `python3 scripts/dependency_report.py --output dependency-report`. The Monday/manual dependency-report workflow saves Markdown and JSON evidence in its summary and artifact without changing repository state or posting issues. Network, API, or schema failures leave an incomplete report and return nonzero; they are not a clean security result. The reporter covers the listed official release sources, curl's explicit affected-version lists, and nghttp2 advisory ranges. Other dependency advisories, Git-only source applicability, and patch interactions require manual review. nghttp2 remains pinned to 1.63.0 for legacy HTTP/2 priorities, with the official CVE-2026-27135 fix backported; newer nghttp2 releases are review candidates, not automatic upgrades. Source updates require verified hashes, reviewed patches, a regenerated vendor manifest and `engine.lock`, fresh native build/checkbuild, and affected protocol or compression tests. Follow the project's patch-approval rule before changing a patch.
+
 To update the engine, review and import the required source changes, preserve their notices, and update `vendor/engine/ORIGIN.md`. Regenerate the existing `SHA256SUMS` file list and its hash in `engine.lock`, then update the profile catalog when needed. Build and test all three platform/architecture combinations in CI. Compare network captures with real browsers before claiming a fidelity improvement.
 
 The runtime includes build provenance at `/opt/native/engine-build.txt`, plus `engine-origin.md`, `engine-inputs.sha256`, `runtime-libraries.txt`, and `runtime-packages.txt`. Inspect them in a filesystem export or with `docker cp`; the diagnostic image also supports `--entrypoint cat`.
@@ -176,7 +178,7 @@ Source builds download pinned dependency archives and use container registries a
 
 ### Validation scope
 
-`test-minimal` runs source integrity checks, parser tests, and local HTTP/TLS/HTTP2 integration tests, then repeats the integration tests inside the assembled runtime filesystem with `chroot`. Test tools stay outside the final image. The suite checks all 39 profile names against the compiled engine, the default Chrome profile, explicit/environment precedence, and `--no-impersonate`. Compression checks cover automatic gzip/deflate decoding, explicit overrides, header order and values, binary output, and opt-in decoding without a profile. Curl-default comparisons explicitly disable impersonation; default-browser requests are checked separately, including HTTP2. It does not compare browser fingerprints or establish HTTP/3 fidelity. Compatibility assertions use local fixtures; the download workflow also runs one bounded public HTTPS smoke check.
+`test-minimal` runs source integrity checks, parser tests, and local HTTP/TLS/HTTP2 integration tests, then repeats the integration tests inside the assembled runtime filesystem with `chroot`. Test tools stay outside the final image. The suite checks all 38 profile names against the compiled engine, the default Chrome profile, explicit/environment precedence, and `--no-impersonate`. Compression checks cover automatic gzip/deflate decoding, explicit overrides, header order and values, binary output, and opt-in decoding without a profile. Curl-default comparisons explicitly disable impersonation; default-browser requests are checked separately, including HTTP2. It does not compare browser fingerprints or establish HTTP/3 fidelity. Compatibility assertions use local fixtures; the download workflow also runs one bounded public HTTPS smoke check.
 
 ## Validate your change
 

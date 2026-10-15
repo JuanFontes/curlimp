@@ -33,6 +33,8 @@ curlimp -sS -I https://httpbin.org/status/200
 
 A server may handle HEAD differently from GET. Avoid `-X HEAD` as a replacement: changing the method string does not enable HEAD's body-handling behavior.
 
+`-I` also selects response headers. A later `--no-include` removes them from ordinary output and exports while the request remains HEAD. The last include setting wins; `-D` can independently dump received headers.
+
 ## Inspect headers from a GET request
 
 To keep the GET method, dump headers to stdout with `-D -` and discard the body with `-o /dev/null`:
@@ -69,6 +71,8 @@ For a native binary, use local paths directly:
 curlimp -sS -D response.headers -o response.body \
   https://httpbin.org/status/418
 ```
+
+With `-o`, a successful HTTP 304 that writes no selected response bytes leaves an existing output file untouched and does not create a missing one. Other responses that write selected bytes still create or update it.
 
 ## Understand decompression
 

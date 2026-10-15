@@ -30,11 +30,11 @@ The release selects Chrome 150 by default and automatically decodes compressed r
 
 ## Platform support
 
-Docker images support Linux amd64 and arm64. Native bundles are tested on Ubuntu 24.04 for both architectures. Native macOS Apple Silicon support is experimental, tested in macOS 15 CI; binaries are signed ad hoc and not notarized.
+Docker images support Linux amd64 and arm64. Release CI targets Ubuntu 24.04 for both native architectures. Native macOS Apple Silicon support is experimental; release CI targets macOS 15, and binaries are signed ad hoc and not notarized.
 
 There are no native Windows or Intel Mac packages. The minimum macOS deployment target and the availability of a Linux loader are not proof of compatibility with every older OS or distribution.
 
-## What is tested
+## What release CI checks
 
 - Argument parsing and explicit unsupported-option errors.
 - The catalog against the compiled engine and profile/default precedence.
@@ -56,5 +56,9 @@ The client does not render pages, execute JavaScript, manage DOM state or local 
 ## Packaging boundaries
 
 Native downloads contain multiple files and must stay together. Request bodies are buffered; ordinary response output and TXT exports stream. [JSON exports](../response-exports/) buffer up to 64 MiB and have explicit output-option conflicts. Release checksum files detect corruption but are not signed. Dependency source hashes are recorded, but the full build environment is not locked for byte-identical builds.
+
+Version 0.4.0 removes `okhttp4_android` and the native `okhttp4` alias. Invalid profile selection is rejected before response or header files are opened. A successful HTTP 304 with no selected response bytes preserves an existing `-o` file rather than truncating it. `-I` chooses HEAD; later `--no-include` can omit headers while retaining HEAD, including in exports. Multiple stdin readers are consumed in argument order, even when a later `-w` supersedes an earlier one. Request bodies remain buffered despite the release dropping a redundant resolved body copy before transfer.
+
+Supported `-u`/`-U` command-line credential forms are masked in the process argument area after startup on shipped Linux and macOS builds. That does not erase shell history and cannot eliminate every observation race. Avoid putting real credentials in shared commands or diagnostics.
 
 For a reproducible bug report, include a sanitized command, release version, OS/architecture, profile, expected result and actual stderr/exit code. See [networking and diagnostics](../networking/).

@@ -17,7 +17,7 @@ These are Curlimp extensions, not standard curl options. Without them, ordinary 
 | `--json-output` | Standard output                                           | One JSON object containing the selected response and transfer result |
 | `--json-file`   | Automatically named `.json` file in the current directory | The same JSON object                                                 |
 
-Choose one mode per invocation. File modes do not also print the response body. A saved-path message goes to stderr unless `-s` is active; `-sS` still shows errors but suppresses that saved-path message.
+Choose one mode per invocation. File modes do not also print the response body. An explicitly requested cookie jar on stdout (`-c -`) can still write there with TXT and JSON-file exports. `--json-output` rejects `-c -` to preserve one JSON document. A saved-path message goes to stderr unless `-s` is active; `-sS` still shows errors but suppresses that saved-path message.
 
 **`--json DATA` keeps its existing meaning:** it sends JSON in the request body. It can be combined with any export mode.
 
@@ -30,6 +30,8 @@ Choose one mode per invocation. File modes do not also print the response body. 
 | `-I`                  | HEAD response headers, no body | `headers`, `headers_encoding`; body fields omitted     |
 
 Every JSON object also includes `schema_version`, `status`, and `exit_code`. A successful GET with an empty response has `"body": ""`; HEAD omits that field. `-v` remains diagnostic output on stderr and is not included in the export. `-L` follows redirects as usual; with `-i` or `-I`, header lines from the received response blocks stay in order.
+
+The last include flag decides whether headers are included. For example, `-I --no-include` still sends HEAD but omits selected response headers from TXT and JSON exports; `-D` can independently save headers in ordinary output mode.
 
 ## Print JSON in the terminal
 
@@ -141,6 +143,7 @@ Export modes reject these combinations before making a request or opening output
 - More than one distinct export mode.
 - Any export mode with `-o`/`--output`, `-D`/`--dump-header`, or `-w`/`--write-out`.
 - Either JSON mode with `-N`/`--no-buffer`, because JSON is serialized after the transfer. TXT supports `-N`.
+- `--json-output` with `-c -`/`--cookie-jar -`, because the cookie jar would mix with the JSON document on stdout.
 
 The ordinary meanings of those curl-style flags are unchanged when export modes are absent. `--json DATA`, `-i`, `-I`, `-L`, `-v`, profile flags, and failure options can be combined with exports.
 
