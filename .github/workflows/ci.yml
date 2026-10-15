@@ -8,6 +8,8 @@ on:
       - 'README.md'
       - 'docker/README.md'
       - 'CONTRIBUTING.md'
+      - 'CHANGELOG.md'
+      - '.github/release-notes/**'
       - '.gitignore'
       - '.github/workflows/pages.yml'
       - 'scripts/published_release.py'
@@ -22,6 +24,7 @@ on:
       - '.prettierrc.json'
       - '.prettierignore'
       - 'ruff.toml'
+      - '.shellcheckrc'
       - 'scripts/check-quality.py'
       - '.github/workflows/site-build.yml'
   workflow_call:

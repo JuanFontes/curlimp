@@ -48,6 +48,8 @@ docker build -f docker/Dockerfile.build --platform linux/arm64 \
 
 Every pull request starts with **Lint and formatting** in `pull-request.yml`. This job checks the entire maintained source set without compiling the native engine. Only a successful gate starts dependency review and the applicable runtime/site jobs. Failed or cancelled lint prevents those downstream jobs from starting. The final **PR checks** result requires all selected checks to succeed; an unexpected skip cannot make it pass.
 
+The quality job also runs on `main` to validate merged source and populate npm/pip download caches that later PRs can restore. Those runs do not invoke the downstream PR workflows again. Packages are still installed from their pinned manifests; downloaded archives are cached, not check results.
+
 | Files                                                    | Fast check                                                              |
 | -------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Rust                                                     | `cargo fmt --all -- --check` with Rust 1.90.0                           |
