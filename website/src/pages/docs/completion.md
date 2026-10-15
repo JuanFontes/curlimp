@@ -7,7 +7,24 @@ section: Usage
 lead: 'Type a little or a lot of a profile name. Tab matches everything you have typed.'
 ---
 
-## Enable completion
+## Homebrew installations
+
+`brew install juanfontes/tap/curlimp` installs the completion file in Homebrew's Zsh directory. If your shell already loads Homebrew completions, just start a new terminal.
+
+Otherwise, put the `fpath` line below **before any existing `compinit` call** in `~/.zshrc`. Use the whole block only if your shell does not already initialize completion:
+
+```zsh
+fpath=("$(brew --prefix)/share/zsh/site-functions" $fpath)
+autoload -Uz compinit
+compinit
+
+# Optional: open a selection menu on Tab for this command.
+zstyle ':completion:*:curlimp:*' menu yes select
+```
+
+The installer does not change your shell files. You do not need to source the generated script separately. `brew uninstall curlimp` removes Homebrew's completion file along with the executable; restart your shell to clear loaded completion functions.
+
+## Downloaded native bundles
 
 Install the native `curlimp` command on your `PATH`, then add this after your existing completion setup in `~/.zshrc`:
 
